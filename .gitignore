@@ -1,0 +1,30 @@
+# 编译产物
+.build/
+dist/
+
+# 系统/编辑器
+.DS_Store
+*.swp
+*.xcuserstate
+.idea/
+.vscode/
+
+# 运行期生成（凭证缓存/日志/调试转储，不应入库）
+*.log
+claude-creds.json
+
+# 第三方品牌 logo 已彻底弃用（应用只用名称文字）。仍忽略此目录下任何 PNG，
+# 作为安全网，防止误把第三方商标图片提交进仓库。
+Icon/ai/*.png
+
+# 开发期预览/草图/工作文件，不入库
+Icon/ai_preview_dark.png
+Icon/icon_preview_1024.png
+Icon/proposals/
+Icon/proposals_A.svg
+Icon/logo/
+Icon/tokenitor_logo.svg
+Icon/tokenitor_logo_preview_1024.png
+
+# 弃用的占位源文件（动态玻璃背景已回退，未被引用）
+Sources/Tokenitor/GlassBackdrop.swift

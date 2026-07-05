@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 不开 App Sandbox：需要读取各家本地文件/钥匙串、运行子进程 -->
+    <!-- Hardened Runtime 下，允许向 Terminal 发送 Apple Events（一键重登 osascript） -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+</dict>
+</plist>
