@@ -166,7 +166,6 @@ Sources/Tokenitor/
   CopilotProvider.swift   Copilot 月度高级用量（copilot_internal/user）
   JSONHelpers.swift       宽容 JSON 遍历
   Notifier.swift          系统通知（原生 + osascript 兜底）
-  StatusBarController.swift 菜单栏 UI
   DebugLog.swift / Log.swift 转储与日志
 relogin-claude.sh         一键重登脚本（打包进 App 资源）
 build.sh / install.sh     编译打包 / 一键安装
