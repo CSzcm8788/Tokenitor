@@ -12,7 +12,7 @@ Supported today: **Claude**, **Codex**, **Gemini CLI**, **GitHub Copilot**. Each
 
 ## What it does
 
-Tokenitor lives in the **menu bar**. Left-click opens a SwiftUI panel (Usage / Token / Settings); right-click shows a compact menu. The panel is fully decoupled from the main window — clicking the menu-bar icon never drags the main window forward. The **main window** is a borderless rounded glass panel (same material as the menu-bar popover), freely resizable and auto-fitting its content; open it from the Dock icon or the menu when you need it. Each AI is a glass card labeled with its name (no logos), a colored progress bar, remaining %, and a reset countdown. Hovering the notch shows a compact panel.
+Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; right-click shows a small menu. Clicking an item opens the **full window** — a standard macOS `NavigationSplitView` (the same layout as System Settings) with a sidebar (Dashboard / Token / Language / Appearance / Settings / About / Help) and a grouped `Form` settings page; you can also open it from the Dock icon. Each AI is a card labeled with its **name only** (no logos), a colored progress bar, remaining %, and a reset countdown. Light/dark follows the system or can be switched manually. Hovering the notch shows a compact panel.
 
 ## Where the data comes from
 
@@ -25,9 +25,11 @@ Tokenitor lives in the **menu bar**. Left-click opens a SwiftUI panel (Usage / T
 
 > ⚠️ Claude / Copilot use non-official endpoints (off by default, opt-in) that may change or break at any time. When that happens the row shows a gray status and degrades gracefully (the fully-local Codex / Gemini are unaffected). Turn on **Settings → Debug dump** to write raw JSON to `~/.tokenitor/debug/` for troubleshooting.
 
-## Build & install
+## Download & install
 
-Requires macOS 12+ and the Xcode command-line tools (`xcode-select --install`; **no need to open Xcode**).
+**Download (recommended):** grab `Tokenitor.dmg` from [Releases](https://github.com/CSzcm8788/Tokenitor/releases/latest), open it, drag Tokenitor into Applications, and double-click to run (notarized by Apple — no Gatekeeper prompt). Requires **macOS 13 (Ventura) or later**.
+
+**Build from source:** requires macOS 13+ and the Xcode command-line tools (`xcode-select --install`; **no need to open Xcode**).
 
 ```bash
 cd Tokenitor

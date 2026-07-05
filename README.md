@@ -41,9 +41,11 @@
 > ⚠️ Claude / Copilot 用的是非官方端点，默认关闭、需手动开启；可能随时变动或失效，失效时优雅降级（不影响纯本地的 Codex / Gemini）。
 > 若接口字段变了，在「设置 → 调试转储原始响应」打开后，原始 JSON 会写到 `~/.tokenitor/debug/`，方便对照调整解析。
 
-## 构建与安装
+## 下载与安装
 
-需要 macOS 12+ 和 Xcode 命令行工具（`xcode-select --install` 即可，**不用打开 Xcode**）。
+**直接下载（推荐）**：到 [Releases](https://github.com/CSzcm8788/Tokenitor/releases/latest) 下载 `Tokenitor.dmg`，打开后拖进「应用程序」，双击即可运行（已经 Apple 公证，无 Gatekeeper 拦截）。要求 **macOS 13 (Ventura) 或更高**。
+
+**从源码构建**：需要 macOS 13+ 和 Xcode 命令行工具（`xcode-select --install` 即可，**不用打开 Xcode**）。
 
 ### 一键安装（推荐）
 
