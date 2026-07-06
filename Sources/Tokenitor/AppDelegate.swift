@@ -329,24 +329,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let group = DispatchGroup()
-        var results: [String: ProviderSnapshot] = [:]
-        let lock = NSLock()
+        var results: [String: ProviderSnapshot] = [:]   // 只在主线程读写，无需加锁
+
+        // 渐进渲染：谁先回来先显示谁（本地数据源亚秒级先出，慢的网络源不再拖住整页）。
+        // 展示顺序始终按 providers 注册顺序，与到达先后无关。
+        func renderPartial() {
+            let ordered = active.compactMap { results[$0.displayName] }.filter { !$0.hidden }
+            self.statusController.render(ordered)
+            self.store.update(ordered)
+        }
 
         for p in active {
             group.enter()
             p.fetch { snap in
-                lock.lock(); results[p.displayName] = snap; lock.unlock()
-                group.leave()
+                DispatchQueue.main.async {
+                    defer { group.leave() }
+                    // 看门狗已收尾且新一轮已开始 → 本轮迟到结果作废
+                    guard gen == self.fetchGeneration else { return }
+                    results[p.displayName] = snap
+                    renderPartial()
+                }
             }
         }
 
         group.notify(queue: .main) {
-            // 看门狗已收尾且新一轮已开始 → 本轮结果作废，不覆盖新数据、不重复收尾
             guard self.fetchGeneration == gen else { return }
-            // 按 providers 原始顺序排列；只显示“正在使用”的 AI，未读取到的(hidden)过滤掉
+            // 告警等全部数据源到齐后统一评估一次（避免对不完整集合重复触发）
             let ordered = active.compactMap { results[$0.displayName] }.filter { !$0.hidden }
-            self.statusController.render(ordered)
-            self.store.update(ordered)
             self.alertEngine.evaluate(ordered)
             self.finishFetch()
         }

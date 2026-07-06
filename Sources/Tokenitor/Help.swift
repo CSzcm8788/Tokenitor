@@ -37,6 +37,7 @@ struct HelpView: View {
                                 "月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot`。")
                     note("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。")
                     note("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页（`status.claude.com` / `status.openai.com` / `githubstatus.com`），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。配额低 ≠ 服务挂了，两者互补。")
+                    note("通知告警：某窗口剩余量跌破「低用量 / 紧急」阈值时各通知一次，回升后重置、可再次触发；限流时展示的缓存旧数据不触发告警。")
                 }
 
                 // ② Token 页（本地成本），与配额独立。原 Token 页折叠「说明」并入此处。
@@ -72,7 +73,7 @@ struct HelpView: View {
                 // ⑥ 声明与免责。
                 card("exclamationmark.shield", "声明") {
                     bullet("独立作品，与 Anthropic / OpenAI / Google / GitHub·Microsoft 无关联、合作或官方关系。")
-                    bullet("仅以各服务名称作指示性标识，不含任何第三方 logo；名称 / 商标归各公司。")
+                    bullet("各 **AI 服务**仅以名称文字标识、不使用其 logo；「关于」页社交链接使用 GitHub / X / Telegram 官方图形标，属**指示性使用**（仅链接指向本项目/作者页面）。名称 / 商标归各公司。")
                     bullet("不保证用量数据的实时性、准确性或完整性。")
                 }
             }
@@ -84,22 +85,16 @@ struct HelpView: View {
     // MARK: 顶部
 
     private var hero: some View {
-        HStack(alignment: .center, spacing: 11) {
-            Image(systemName: "gauge.medium")
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Tokenitor").font(.pageTitle)
-                Text("菜单栏 AI 用量速览 · 剩余配额 + 今日 token 成本 · 纯本地")
-                    .font(.uiCaption).foregroundStyle(.secondary)
-                HStack(spacing: 14) {
-                    legend(GaugeColor.healthy, "充足")
-                    legend(GaugeColor.warning, "偏低")
-                    legend(GaugeColor.critical, "紧急")
-                }
-                .padding(.top, 2)
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Tokenitor").font(.pageTitle)
+            Text("菜单栏 AI 用量速览 · 剩余配额 + 今日 token 成本 · 纯本地")
+                .font(.uiCaption).foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                legend(GaugeColor.healthy, "充足")
+                legend(GaugeColor.warning, "偏低")
+                legend(GaugeColor.critical, "紧急")
             }
-            Spacer(minLength: 0)
+            .padding(.top, 2)
         }
         .padding(.bottom, 2)
     }
@@ -117,7 +112,14 @@ struct HelpView: View {
                                      @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 14, weight: .regular)).foregroundStyle(.secondary)
+                // 统一规格的分区图标：单色符号 + 24pt 圆角容器（不同 SF Symbol 视觉宽度不一，
+                // 用固定容器抹平大小差异，符合系统设置的图标块风格）
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(0.06)))
                 Text(title).font(.sectionTitle)
             }
             content()

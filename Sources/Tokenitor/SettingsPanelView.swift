@@ -51,22 +51,24 @@ struct SettingsPanelView: View {
     private let intervalOptions = [30, 60, 120, 300]
 
     var body: some View {
+        // 每个分区一个「小标题 + 一句话简介」（同系统设置）；详细口径/风险说明统一在「说明」页，
+        // 这里不再放 footer 长文（避免两处重复维护）。
         Form {
-            // 各 AI 服务开关 + 通知
+            // AI 服务
             Section {
                 ForEach(AIKind.allCases) { kind in
                     aiToggle(kind)
                 }
+            } header: {
+                sectionHeader("AI 服务", "选择要监控用量的工具；走非官方端点的（Claude / Copilot）首次开启会弹确认。")
+            }
+
+            // 告警
+            Section {
                 Toggle(isOn: bind({ Settings.shared.notificationsEnabled },
                                   { Settings.shared.notificationsEnabled = $0; store.onSettingsChanged() })) {
                     Label("通知告警", systemImage: "bell")
                 }
-            } footer: {
-                Text("Claude / Copilot 走非官方端点，默认关闭、需自担风险。")
-            }
-
-            // 阈值 / 刷新间隔
-            Section {
                 Picker("低用量阈值（剩余）",
                        selection: bind({ Int(Settings.shared.warnAt) },
                                        { Settings.shared.warnAt = Double($0); store.onSettingsChanged() })) {
@@ -77,15 +79,17 @@ struct SettingsPanelView: View {
                                        { Settings.shared.critAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(critOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
+            } header: {
+                sectionHeader("告警", "剩余量跌破阈值时发一次系统通知，回升后可再次触发。")
+            }
+
+            // 通用
+            Section {
                 Picker("刷新间隔",
                        selection: bind({ Int(Settings.shared.refreshInterval) },
                                        { Settings.shared.refreshInterval = Double($0); store.onSettingsChanged() })) {
                     ForEach(intervalOptions, id: \.self) { Text("\($0)s").tag($0) }
                 }
-            }
-
-            // 偏好
-            Section {
                 Toggle(isOn: bind({ LoginItem.enabled }, { LoginItem.set($0) })) {
                     Label("开机自启", systemImage: "power")
                 }
@@ -100,18 +104,18 @@ struct SettingsPanelView: View {
                 Toggle(isOn: bind({ Settings.shared.debugDump }, { Settings.shared.debugDump = $0 })) {
                     Label("调试转储", systemImage: "ladybug")
                 }
-            } footer: {
-                Text("服务状态监控：每 5 分钟轮询各厂商公开状态页（status.claude.com / status.openai.com / githubstatus.com），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。")
+            } header: {
+                sectionHeader("通用", "刷新频率与常驻行为；各项含义详见「说明」页。")
             }
 
-            // 动作（悬停有反馈，与 IconButton 手感一致）
+            // 动作：测试通知/数据文件夹 一行，两个授权 一行（均带悬停反馈）
             Section {
                 HStack(spacing: 10) {
                     Button("测试通知") { store.onTestNotify() }
                         .help("发一条测试通知，确认系统通知权限正常")
                         .pressableHover()
-                    Button("重新登录 Claude") { store.onReloginClaude() }
-                        .help("Claude 用量读不出来时，重新走订阅 /login 刷新凭证")
+                    Button("数据文件夹") { Self.openDataFolder() }
+                        .help("打开 ~/.tokenitor（历史/缓存/日志/调试转储所在目录）")
                         .pressableHover()
                     Spacer()
                 }
@@ -120,9 +124,14 @@ struct SettingsPanelView: View {
                     Button("授权 Copilot") { store.onLoginCopilot() }
                         .help("用 GitHub device flow 显式授权，读取 Copilot 高级用量")
                         .pressableHover()
+                    Button("授权 Claude") { store.onReloginClaude() }
+                        .help("在终端里用订阅账号 /login 一次，生成 Tokenitor 可读的凭证")
+                        .pressableHover()
                     Spacer()
                 }
                 .buttonStyle(.bordered)
+            } header: {
+                sectionHeader("动作", "通知测试、数据目录与账号授权。")
             }
 
         }
@@ -132,7 +141,18 @@ struct SettingsPanelView: View {
 
     // MARK: - 行
 
-    /// 一个 AI 开关（Claude 走风险确认弹窗）。AI 行不带图标，只用名称（品牌 logo 已移除）。
+    /// 分区头：小标题 + 一句话简介（同「系统设置」的分组头风格）。
+    private func sectionHeader(_ title: String, _ desc: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.sectionTitle).foregroundStyle(.primary)
+            Text(desc).font(.uiCaption).foregroundStyle(.secondary)
+        }
+        .textCase(nil)
+        .padding(.bottom, 2)
+    }
+
+    /// 一个 AI 开关（Claude 首次开启走风险确认弹窗，行内不再重复标注）。
+    /// AI 行不带图标，只用名称（品牌 logo 已移除）。
     private func aiToggle(_ kind: AIKind) -> some View {
         Toggle(isOn: Binding(
             get: { Settings.shared.isEnabled(kind) },
@@ -144,15 +164,15 @@ struct SettingsPanelView: View {
                 }
                 store.onSettingsChanged()
             })) {
-            if kind == .claude {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(kind.title)
-                    Text("高级 · 自担风险").font(.caption).foregroundStyle(.secondary)
-                }
-            } else {
-                Text(kind.title)
-            }
+            Text(kind.title)
         }
+    }
+
+    /// 打开数据目录 ~/.tokenitor（不存在则先创建）。
+    private static func openDataFolder() {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".tokenitor")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
     }
 
     // MARK: - 绑定辅助

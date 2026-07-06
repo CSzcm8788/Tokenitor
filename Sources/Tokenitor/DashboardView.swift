@@ -180,6 +180,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.2.2", "渐进渲染（先到先显示）· 设置页重组 · 官方社交图形标"),
         ("1.2.1", "外观预览缩略图 · 悬停反馈 · Token 工具入边栏 · 说明页降噪"),
         ("1.2.0", "服务状态监控 · 套餐胶囊 · 中文倒计时 · Homebrew 分发"),
         ("1.1.0", "仪表重设计：分组侧边栏 + hero 卡片"),
@@ -189,23 +190,6 @@ struct AboutDetail: View {
 
     var body: some View {
         Form {
-            Section {
-                HStack(spacing: 14) {
-                    // GitHub 官方猫标属商标图形，与「不内置第三方品牌图形」政策冲突 → 用通用链接图标
-                    socialButton(icon: "link",
-                                 help: "GitHub · 项目主页",
-                                 url: "https://github.com/CSzcm8788/Tokenitor")
-                    socialButton(icon: "paperplane.fill",
-                                 help: "Telegram · 联系作者",
-                                 url: "https://t.me/yukabiubiu")
-                    socialButton(text: "𝕏",
-                                 help: "X · 作者主页",
-                                 url: "https://x.com/yukabiubiu")
-                    Spacer()
-                    Button { openDataFolder() } label: { Label("数据文件夹", systemImage: "folder") }
-                        .buttonStyle(.bordered)
-                }
-            }
             Section("更新简要") {
                 ForEach(Self.releaseNotes.prefix(3), id: \.version) { item in
                     LabeledContent(item.version) {
@@ -215,28 +199,43 @@ struct AboutDetail: View {
             }
             Section {
                 LabeledContent("版本", value: "Tokenitor v\(appVersion)")
+                // 社交入口：版本下方、右下角。官方图形标（GitHub Mark / X logo / 纸飞机），
+                // 指示性使用（链接到本项目/作者页面），单色随主题着色。
+                HStack(spacing: 12) {
+                    Spacer()
+                    socialButton(help: "GitHub · 项目主页",
+                                 url: "https://github.com/CSzcm8788/Tokenitor") {
+                        BrandIcon.github.fill(style: FillStyle(eoFill: true))
+                            .frame(width: 16, height: 16)
+                    }
+                    socialButton(help: "X · 作者主页",
+                                 url: "https://x.com/yukabiubiu") {
+                        BrandIcon.x.fill(style: FillStyle(eoFill: true))
+                            .frame(width: 14, height: 14)
+                    }
+                    socialButton(help: "Telegram · 联系作者",
+                                 url: "https://t.me/yukabiubiu") {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                }
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
     }
 
-    /// 圆形社交图标按钮：SF Symbol 或文字符号（不内置第三方品牌图片，与全 app 政策一致）。
-    private func socialButton(icon: String? = nil, text: String? = nil,
-                              help: String, url: String) -> some View {
+    /// 圆形社交图标按钮（悬停放大 + 手型光标）。
+    private func socialButton<Icon: View>(help: String, url: String,
+                                          @ViewBuilder icon: () -> Icon) -> some View {
         Button {
             if let u = URL(string: url) { NSWorkspace.shared.open(u) }
         } label: {
-            Group {
-                if let icon {
-                    Image(systemName: icon).font(.system(size: 14, weight: .medium))
-                } else {
-                    Text(text ?? "").font(.system(size: 15, weight: .semibold))
-                }
-            }
-            .frame(width: 32, height: 32)
-            .background(Circle().fill(Color.primary.opacity(0.07)))
-            .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            icon()
+                .foregroundStyle(.primary)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.primary.opacity(0.07)))
+                .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .pressableHover(scale: 1.08)
@@ -245,12 +244,6 @@ struct AboutDetail: View {
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-    }
-
-    private func openDataFolder() {
-        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".tokenitor")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(dir)
     }
 }
 
