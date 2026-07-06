@@ -160,18 +160,14 @@ struct HelpView: View {
 
     private enum TagKind { case ok, warn, mut }
 
+    /// 说明页是阅读场景：标签胶囊统一灰色（彩色在深色模式下过于刺眼；
+    /// 三态色只保留给「用量档位」这一个语义，见顶部图例）。
     private func tagPill(_ text: String, _ kind: TagKind) -> some View {
-        let (fg, bg): (Color, Color)
-        switch kind {
-        case .ok:   (fg, bg) = (GaugeColor.healthy, GaugeColor.healthy.opacity(0.16))
-        case .warn: (fg, bg) = (GaugeColor.warning, GaugeColor.warning.opacity(0.16))
-        case .mut:  (fg, bg) = (.secondary, Color.primary.opacity(0.06))
-        }
-        return Text(text)
+        Text(text)
             .font(.system(size: 10.5, weight: .medium))
-            .foregroundStyle(fg)
+            .foregroundStyle(.secondary)
             .padding(.horizontal, 7).padding(.vertical, 1.5)
-            .background(Capsule().fill(bg))
+            .background(Capsule().fill(Color.primary.opacity(0.06)))
     }
 
     // MARK: 文本构件
@@ -184,7 +180,7 @@ struct HelpView: View {
 
     private func bullet(_ s: String) -> some View {
         HStack(alignment: .top, spacing: 7) {
-            Circle().fill(Color.accentColor.opacity(0.7)).frame(width: 4, height: 4).padding(.top, 7)
+            Circle().fill(Color.secondary.opacity(0.5)).frame(width: 4, height: 4).padding(.top, 7)
             Text(markdown(s)).font(.uiBody).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

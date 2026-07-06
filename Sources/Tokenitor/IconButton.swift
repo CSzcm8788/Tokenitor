@@ -38,3 +38,26 @@ struct IconButton: View {
         return Color.primary.opacity(hovering ? 0.16 : 0.06)
     }
 }
+
+/// 统一悬停反馈：轻微放大 + 提亮 + 手型光标。
+/// 用于所有自定义可点控件（社交按钮、设置页动作按钮、分段控件等），与 IconButton 手感一致。
+struct PressableHover: ViewModifier {
+    @State private var hovering = false
+    var scale: CGFloat = 1.03
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(hovering ? scale : 1)
+            .brightness(hovering ? 0.04 : 0)
+            .animation(.easeOut(duration: 0.12), value: hovering)
+            .onHover { h in
+                hovering = h
+                if h { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+            }
+    }
+}
+
+extension View {
+    /// 悬停反馈（放大 + 提亮 + 手型光标）。
+    func pressableHover(scale: CGFloat = 1.03) -> some View { modifier(PressableHover(scale: scale)) }
+}

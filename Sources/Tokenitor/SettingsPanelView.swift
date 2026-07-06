@@ -104,19 +104,22 @@ struct SettingsPanelView: View {
                 Text("服务状态监控：每 5 分钟轮询各厂商公开状态页（status.claude.com / status.openai.com / githubstatus.com），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。")
             }
 
-            // 动作（两个并排）
+            // 动作（悬停有反馈，与 IconButton 手感一致）
             Section {
                 HStack(spacing: 10) {
                     Button("测试通知") { store.onTestNotify() }
                         .help("发一条测试通知，确认系统通知权限正常")
+                        .pressableHover()
                     Button("重新登录 Claude") { store.onReloginClaude() }
                         .help("Claude 用量读不出来时，重新走订阅 /login 刷新凭证")
+                        .pressableHover()
                     Spacer()
                 }
                 .buttonStyle(.bordered)
                 HStack(spacing: 10) {
                     Button("授权 Copilot") { store.onLoginCopilot() }
                         .help("用 GitHub device flow 显式授权，读取 Copilot 高级用量")
+                        .pressableHover()
                     Spacer()
                 }
                 .buttonStyle(.bordered)

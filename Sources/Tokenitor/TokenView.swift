@@ -6,11 +6,10 @@ import SwiftUI
 struct TokenView: View {
     @ObservedObject var store: UsageStore
     var inPopover: Bool = false   // 主窗口头部由自绘 header 提供（见 DashboardView.mainHeaderRow），弹层才画自己的头
-    @State private var selected: String?
 
-    /// 选中的工具在当前列表里找不到（如刚关掉、或还没选过）时回退到第一个。
+    /// 当前工具由边栏子项选择（store.tokenTool）；找不到（如刚关掉/未选过）时回退到第一个。
     private var resolvedSelected: String {
-        if let selected, store.tokenStats.contains(where: { $0.tool == selected }) { return selected }
+        if let t = store.tokenTool, store.tokenStats.contains(where: { $0.tool == t }) { return t }
         return store.tokenStats.first?.tool ?? ""
     }
 
@@ -32,30 +31,13 @@ struct TokenView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 8)
-            } else {
-                toolTabs
-                if let stat = store.tokenStats.first(where: { $0.tool == resolvedSelected }) {
-                    TokenStatCard(stat: stat, updatedAt: store.tokensUpdate)   // 「更新于」在卡片标题下
-                }
+            } else if let stat = store.tokenStats.first(where: { $0.tool == resolvedSelected }) {
+                // 工具切换在边栏「Token」下的子项里（不再占本页顶部）
+                TokenStatCard(stat: stat, updatedAt: store.tokensUpdate)   // 「更新于」在卡片标题下
             }
             // 成本估算 / Claude 无本地数据等说明已移到「说明」子页（点头部 ? 进入），不再挤占本页。
         }
     }
-
-    /// 每个有本地 token 数据的工具一个图标，点哪个显示哪个（不再纵向堆叠全部工具）。
-    @ViewBuilder
-    private var toolTabs: some View {
-        if store.tokenStats.count > 1 {
-            Picker("工具", selection: Binding(get: { resolvedSelected }, set: { selected = $0 })) {
-                ForEach(store.tokenStats) { stat in
-                    Text(stat.tool).tag(stat.tool)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        }
-    }
-
 }
 
 /// Token 页的「说明」子页：把成本估算 / Claude 无本地数据等说明集中到这里，
@@ -90,40 +72,6 @@ struct TokenInfoView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
-    }
-}
-
-/// Token 页顶部的单个工具图标 Tab，尺寸对齐 IconButton（30×30）。
-private struct ToolIconTab: View {
-    let name: String
-    let selected: Bool
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Text(name)
-                .font(.uiCaption)
-                .fontWeight(selected ? .semibold : .medium)
-                .foregroundStyle(selected ? Color.accentColor : Color.primary.opacity(0.85))
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .frame(height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(selected ? Color.accentColor.opacity(0.16) : Color.primary.opacity(hovering ? 0.1 : 0.06))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(selected ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.08), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .help(name)
-        .onHover { h in
-            hovering = h
-            if h { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
     }
 }
 

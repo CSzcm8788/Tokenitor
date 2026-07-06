@@ -13,8 +13,9 @@ struct DashboardView: View {
             .navigationTitle("Tokenitor")
         } detail: {
             detail
-                // 工具栏（标题栏）始终有材质：内容滚动到它下面时被正常遮挡，
-                // 不再出现卡片盖住标题/按钮的错乱（此前透明标题栏 + 玻璃窗口无遮挡）。
+                // 工具栏（标题栏）用**玻璃材质**而非不透明底：既遮挡滚动到底下的内容
+                //（修复卡片盖住标题/按钮的错乱），又保留动态玻璃的通透感。
+                .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
                 .toolbarBackground(.visible, for: .windowToolbar)
                 .background(VisualEffectView(material: .popover, blending: .behindWindow).ignoresSafeArea())
         }
@@ -30,14 +31,31 @@ struct DashboardView: View {
         }
     }
 
+    /// 边栏选中项：普通页面，或 Token 下的某个工具子项。
+    enum SidebarSel: Hashable {
+        case page(AppPage)
+        case tool(String)
+    }
+
     private var sidebarContent: some View {
         List(selection: sidebarSelection) {
                 // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
-                // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色），
-                // 不再用彩色圆角块，全 app 图标语言统一为线性单色。
+                // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色）。
                 Section("概览") {
                     sidebarItem("仪表", "gauge.medium", .usage)
                     sidebarItem("Token", "chart.bar.xaxis", .tokens)
+                    // Token 的工具切换收进边栏（Finder 源列表式子项），不再占详情页顶部
+                    ForEach(store.tokenStats) { stat in
+                        Label {
+                            Text(stat.tool)
+                        } icon: {
+                            Image(systemName: "circlebadge.fill")
+                                .font(.system(size: 6))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.leading, 14)
+                        .tag(SidebarSel.tool(stat.tool))
+                    }
                 }
                 Section("通用") {
                     sidebarItem("语言", "globe", .language)
@@ -51,27 +69,40 @@ struct DashboardView: View {
         }
     }
 
-    /// 边栏选中项 ↔ store.page 映射。
-    private var sidebarSelection: Binding<AppPage?> {
+    /// 边栏选中项 ↔ store.page / store.tokenTool 映射。
+    private var sidebarSelection: Binding<SidebarSel?> {
         Binding(
             get: {
                 switch store.page {
-                case .usage:              return .usage
-                case .tokens, .tokenInfo: return .tokens
-                case .language:           return .language
-                case .appearance:         return .appearance
-                case .settings:           return .settings
-                case .about:              return .about
-                case .help:               return .help
+                case .usage:              return .page(.usage)
+                case .tokens, .tokenInfo:
+                    if let t = store.tokenTool { return .tool(t) }
+                    return .page(.tokens)
+                case .language:           return .page(.language)
+                case .appearance:         return .page(.appearance)
+                case .settings:           return .page(.settings)
+                case .about:              return .page(.about)
+                case .help:               return .page(.help)
                 }
             },
-            set: { store.page = $0 ?? .usage })
+            set: { sel in
+                switch sel {
+                case .page(let p):
+                    store.page = p
+                    if p == .tokens { store.tokenTool = nil }   // 点「Token」本身 → 默认第一个工具
+                case .tool(let t):
+                    store.tokenTool = t
+                    store.page = .tokens
+                case nil:
+                    store.page = .usage
+                }
+            })
     }
 
     /// 边栏行：单色 SF Symbol + 名称（着色交给系统：强调色 / 选中态自动适配）。
     private func sidebarItem(_ title: String, _ icon: String, _ page: AppPage) -> some View {
         Label(title, systemImage: icon)
-            .tag(page)
+            .tag(SidebarSel.page(page))
     }
 
     @ViewBuilder
@@ -147,8 +178,9 @@ struct DashboardView: View {
 struct AboutDetail: View {
     @ObservedObject var store: UsageStore
 
-    /// 版本更新简要（一版一行；完整日志见 GitHub README）。
+    /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.2.1", "外观预览缩略图 · 悬停反馈 · Token 工具入边栏 · 说明页降噪"),
         ("1.2.0", "服务状态监控 · 套餐胶囊 · 中文倒计时 · Homebrew 分发"),
         ("1.1.0", "仪表重设计：分组侧边栏 + hero 卡片"),
         ("1.0.1", "安全与稳定性修复（凭证只读、刷新看门狗等）"),
@@ -159,7 +191,8 @@ struct AboutDetail: View {
         Form {
             Section {
                 HStack(spacing: 14) {
-                    socialButton(icon: "chevron.left.forwardslash.chevron.right",
+                    // GitHub 官方猫标属商标图形，与「不内置第三方品牌图形」政策冲突 → 用通用链接图标
+                    socialButton(icon: "link",
                                  help: "GitHub · 项目主页",
                                  url: "https://github.com/CSzcm8788/Tokenitor")
                     socialButton(icon: "paperplane.fill",
@@ -174,7 +207,7 @@ struct AboutDetail: View {
                 }
             }
             Section("更新简要") {
-                ForEach(Self.releaseNotes, id: \.version) { item in
+                ForEach(Self.releaseNotes.prefix(3), id: \.version) { item in
                     LabeledContent(item.version) {
                         Text(item.note).foregroundStyle(.secondary)
                     }
@@ -206,6 +239,7 @@ struct AboutDetail: View {
             .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
+        .pressableHover(scale: 1.08)
         .help(help)
     }
 
@@ -244,27 +278,85 @@ struct LanguageDetail: View {
     }
 }
 
-/// 「外观」详情：浅色 / 深色 / 跟随系统（从「设置」移出，成独立侧边栏项，同系统设置）。
+/// 「外观」详情：浅色 / 深色 / 跟随系统 —— 可点选的窗口缩略图预览（同「系统设置 → 外观」）。
 struct AppearanceDetail: View {
+    @State private var selection = Settings.shared.appearance
+
     var body: some View {
         Form {
             Section {
-                Picker(selection: Binding(
-                    get: { Settings.shared.appearance },
-                    set: { Settings.shared.appearance = $0; AppearanceMode.apply() })) {
-                    Text("跟随系统").tag("system")
-                    Text("浅色").tag("light")
-                    Text("深色").tag("dark")
-                } label: {
-                    Label("外观", systemImage: "circle.lefthalf.filled")
+                HStack(alignment: .top, spacing: 22) {
+                    thumb("浅色", key: "light")
+                    thumb("深色", key: "dark")
+                    thumb("跟随系统", key: "system")
+                    Spacer(minLength: 0)
                 }
-                .pickerStyle(.inline)
+                .padding(.vertical, 6)
             } footer: {
-                Text("选择浅色 / 深色 / 跟随系统外观。")
+                Text("「跟随系统」随 macOS 的日夜外观自动切换。")
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    /// 一个可点选的外观缩略图：迷你窗口预览 + 选中描边 + 名称。
+    private func thumb(_ title: String, key: String) -> some View {
+        let selected = selection == key
+        return VStack(spacing: 7) {
+            preview(for: key)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(selected ? Color.accentColor : Color.primary.opacity(0.15),
+                                lineWidth: selected ? 2.5 : 0.5)
+                )
+            Text(title)
+                .font(.uiCaption)
+                .foregroundStyle(selected ? Color.accentColor : .secondary)
+                .fontWeight(selected ? .semibold : .regular)
+        }
+        .contentShape(Rectangle())
+        .pressableHover(scale: 1.03)
+        .onTapGesture {
+            selection = key
+            Settings.shared.appearance = key
+            AppearanceMode.apply()
+        }
+    }
+
+    @ViewBuilder
+    private func preview(for key: String) -> some View {
+        switch key {
+        case "light": miniWindow(dark: false)
+        case "dark":  miniWindow(dark: true)
+        default:      // 跟随系统：左浅右深各一半
+            ZStack {
+                miniWindow(dark: false)
+                miniWindow(dark: true)
+                    .mask(HStack(spacing: 0) { Color.clear; Color.black })
+            }
+        }
+    }
+
+    /// 迷你窗口 mockup：红黄绿三点 + 两根内容条。
+    private func miniWindow(dark: Bool) -> some View {
+        let bar = dark ? Color(white: 0.42) : Color(white: 0.78)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 3.5) {
+                Circle().fill(Color(red: 1.00, green: 0.38, blue: 0.35)).frame(width: 6, height: 6)
+                Circle().fill(Color(red: 1.00, green: 0.74, blue: 0.20)).frame(width: 6, height: 6)
+                Circle().fill(Color(red: 0.22, green: 0.80, blue: 0.35)).frame(width: 6, height: 6)
+                Spacer()
+            }
+            RoundedRectangle(cornerRadius: 2).fill(bar).frame(height: 7)
+            RoundedRectangle(cornerRadius: 2).fill(bar.opacity(0.6)).frame(height: 7)
+                .padding(.trailing, 22)
+            Spacer(minLength: 0)
+        }
+        .padding(8)
+        .frame(width: 104, height: 68)
+        .background(dark ? Color(white: 0.15) : .white)
     }
 }
 
