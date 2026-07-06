@@ -28,8 +28,8 @@ enum AppearanceMode {
     }
 }
 
-/// 界面语言：跟随系统 / 中文 / English。通过 AppleLanguages 覆盖，**切换后需重启生效**。
-/// （English 字符串本地化正在逐步完善，未译处暂显中文。）
+/// 界面语言：跟随系统 / 中文 / English，**切换后需重启生效**（界面文案由 L10n 决定，
+/// 这里的 AppleLanguages 覆盖只影响系统提供的字符串，如标准菜单项）。
 enum LanguageManager {
     static func apply() {
         switch Settings.shared.language {
@@ -60,78 +60,78 @@ struct SettingsPanelView: View {
                     aiToggle(kind)
                 }
             } header: {
-                sectionHeader("AI 服务", "选择要监控用量的工具；走非官方端点的（Claude / Copilot）首次开启会弹确认。")
+                sectionHeader(L("AI 服务", "AI Services"), L("选择要监控用量的工具；走非官方端点的（Claude / Copilot）首次开启会弹确认。", "Pick the tools to monitor; Claude / Copilot use undocumented endpoints and ask for confirmation on first enable."))
             }
 
             // 告警
             Section {
                 Toggle(isOn: bind({ Settings.shared.notificationsEnabled },
                                   { Settings.shared.notificationsEnabled = $0; store.onSettingsChanged() })) {
-                    Label("通知告警", systemImage: "bell")
+                    Label(L("通知告警", "Notifications"), systemImage: "bell")
                 }
-                Picker("低用量阈值（剩余）",
+                Picker(L("低用量阈值（剩余）", "Low threshold (remaining)"),
                        selection: bind({ Int(Settings.shared.warnAt) },
                                        { Settings.shared.warnAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(warnOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
-                Picker("紧急阈值（剩余）",
+                Picker(L("紧急阈值（剩余）", "Critical threshold (remaining)"),
                        selection: bind({ Int(Settings.shared.critAt) },
                                        { Settings.shared.critAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(critOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
             } header: {
-                sectionHeader("告警", "剩余量跌破阈值时发一次系统通知，回升后可再次触发。")
+                sectionHeader(L("告警", "Alerts"), L("剩余量跌破阈值时发一次系统通知，回升后可再次触发。", "Notifies once when remaining quota drops below a threshold; re-arms after recovery."))
             }
 
             // 通用
             Section {
-                Picker("刷新间隔",
+                Picker(L("刷新间隔", "Refresh interval"),
                        selection: bind({ Int(Settings.shared.refreshInterval) },
                                        { Settings.shared.refreshInterval = Double($0); store.onSettingsChanged() })) {
                     ForEach(intervalOptions, id: \.self) { Text("\($0)s").tag($0) }
                 }
                 Toggle(isOn: bind({ LoginItem.enabled }, { LoginItem.set($0) })) {
-                    Label("开机自启", systemImage: "power")
+                    Label(L("开机自启", "Launch at login"), systemImage: "power")
                 }
                 Toggle(isOn: bind({ Settings.shared.notchEnabled },
                                   { Settings.shared.notchEnabled = $0; store.onSettingsChanged() })) {
-                    Label("刘海面板", systemImage: "rectangle.topthird.inset.filled")
+                    Label(L("刘海面板", "Notch panel"), systemImage: "rectangle.topthird.inset.filled")
                 }
                 Toggle(isOn: bind({ Settings.shared.statusMonitorEnabled },
                                   { Settings.shared.statusMonitorEnabled = $0; store.onSettingsChanged() })) {
-                    Label("服务状态监控", systemImage: "waveform.path.ecg")
+                    Label(L("服务状态监控", "Service status monitor"), systemImage: "waveform.path.ecg")
                 }
                 Toggle(isOn: bind({ Settings.shared.debugDump }, { Settings.shared.debugDump = $0 })) {
-                    Label("调试转储", systemImage: "ladybug")
+                    Label(L("调试转储", "Debug dumps"), systemImage: "ladybug")
                 }
             } header: {
-                sectionHeader("通用", "刷新频率与常驻行为；各项含义详见「说明」页。")
+                sectionHeader(L("通用", "General"), L("刷新频率与常驻行为；各项含义详见「说明」页。", "Refresh cadence and background behavior; see the Guide page for details."))
             }
 
             // 动作：测试通知/数据文件夹 一行，两个授权 一行（均带悬停反馈）
             Section {
                 HStack(spacing: 10) {
-                    Button("测试通知") { store.onTestNotify() }
-                        .help("发一条测试通知，确认系统通知权限正常")
+                    Button(L("测试通知", "Test Notification")) { store.onTestNotify() }
+                        .help(L("发一条测试通知，确认系统通知权限正常", "Send a test notification to confirm permission"))
                         .pressableHover()
-                    Button("数据文件夹") { Self.openDataFolder() }
-                        .help("打开 ~/.tokenitor（历史/缓存/日志/调试转储所在目录）")
+                    Button(L("数据文件夹", "Data Folder")) { Self.openDataFolder() }
+                        .help(L("打开 ~/.tokenitor（历史/缓存/日志/调试转储所在目录）", "Open ~/.tokenitor (history / cache / logs / dumps)"))
                         .pressableHover()
                     Spacer()
                 }
                 .buttonStyle(.bordered)
                 HStack(spacing: 10) {
-                    Button("授权 Copilot") { store.onLoginCopilot() }
-                        .help("用 GitHub device flow 显式授权，读取 Copilot 高级用量")
+                    Button(L("授权 Copilot", "Authorize Copilot")) { store.onLoginCopilot() }
+                        .help(L("用 GitHub device flow 显式授权，读取 Copilot 高级用量", "Authorize via GitHub device flow to read Copilot premium usage"))
                         .pressableHover()
-                    Button("授权 Claude") { store.onReloginClaude() }
-                        .help("在终端里用订阅账号 /login 一次，生成 Tokenitor 可读的凭证")
+                    Button(L("授权 Claude", "Authorize Claude")) { store.onReloginClaude() }
+                        .help(L("在终端里用订阅账号 /login 一次，生成 Tokenitor 可读的凭证", "Run /login once in Terminal with your subscription account"))
                         .pressableHover()
                     Spacer()
                 }
                 .buttonStyle(.bordered)
             } header: {
-                sectionHeader("动作", "通知测试、数据目录与账号授权。")
+                sectionHeader(L("动作", "Actions"), L("通知测试、数据目录与账号授权。", "Notification test, data folder, and account authorization."))
             }
 
         }

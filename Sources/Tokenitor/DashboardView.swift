@@ -41,8 +41,8 @@ struct DashboardView: View {
         List(selection: sidebarSelection) {
                 // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
                 // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色）。
-                Section("概览") {
-                    sidebarItem("仪表", "gauge.medium", .usage)
+                Section(L("概览", "Overview")) {
+                    sidebarItem(L("仪表", "Dashboard"), "gauge.medium", .usage)
                     sidebarItem("Token", "chart.bar.xaxis", .tokens)
                     // Token 的工具切换收进边栏（Finder 源列表式子项），不再占详情页顶部
                     ForEach(store.tokenStats) { stat in
@@ -57,14 +57,14 @@ struct DashboardView: View {
                         .tag(SidebarSel.tool(stat.tool))
                     }
                 }
-                Section("通用") {
-                    sidebarItem("语言", "globe", .language)
-                    sidebarItem("外观", "circle.lefthalf.filled", .appearance)
-                    sidebarItem("设置", "gearshape", .settings)
+                Section(L("通用", "General")) {
+                    sidebarItem(L("语言", "Language"), "globe", .language)
+                    sidebarItem(L("外观", "Appearance"), "circle.lefthalf.filled", .appearance)
+                    sidebarItem(L("设置", "Settings"), "gearshape", .settings)
                 }
-                Section("其他") {
-                    sidebarItem("关于", "info.circle", .about)
-                    sidebarItem("说明", "questionmark.circle", .help)
+                Section(L("其他", "Other")) {
+                    sidebarItem(L("关于", "About"), "info.circle", .about)
+                    sidebarItem(L("说明", "Guide"), "questionmark.circle", .help)
                 }
         }
     }
@@ -113,15 +113,15 @@ struct DashboardView: View {
         case .tokens, .tokenInfo:
             tokenDetail
         case .language:
-            LanguageDetail(store: store).navigationTitle("语言")
+            LanguageDetail(store: store).navigationTitle(L("语言", "Language"))
         case .appearance:
-            AppearanceDetail().navigationTitle("外观")
+            AppearanceDetail().navigationTitle(L("外观", "Appearance"))
         case .settings:
-            SettingsView(store: store, inPopover: false).navigationTitle("设置")
+            SettingsView(store: store, inPopover: false).navigationTitle(L("设置", "Settings"))
         case .about:
-            AboutDetail(store: store).navigationTitle("关于")
+            AboutDetail(store: store).navigationTitle(L("关于", "About"))
         case .help:
-            HelpView().navigationTitle("说明")
+            HelpView().navigationTitle(L("说明", "Guide"))
         }
     }
 
@@ -131,7 +131,7 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if store.snapshots.isEmpty {
-                    Text("正在获取用量…").foregroundStyle(.secondary).padding(.vertical, 8)
+                    Text(L("正在获取用量…", "Fetching usage…")).foregroundStyle(.secondary).padding(.vertical, 8)
                 } else {
                     ForEach(store.snapshots, id: \.name) { snap in
                         AIMonitorPanel(snap: snap,
@@ -148,14 +148,14 @@ struct DashboardView: View {
                         Image(systemName: "arrow.clockwise").font(.system(size: 13))
                     }
                     .buttonStyle(.borderless)
-                    .help("刷新")
+                    .help(L("刷新", "Refresh"))
                 }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
-        .navigationTitle("用量")
+        .navigationTitle(L("用量", "Usage"))
     }
 
     // MARK: - Token 详情（「说明」折叠在底部）
@@ -169,7 +169,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
-        .navigationTitle("Token 用量")
+        .navigationTitle(L("Token 用量", "Token Usage"))
     }
 
 }
@@ -180,17 +180,18 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
-        ("1.2.2", "渐进渲染（先到先显示）· 设置页重组 · 官方社交图形标"),
-        ("1.2.1", "外观预览缩略图 · 悬停反馈 · Token 工具入边栏 · 说明页降噪"),
-        ("1.2.0", "服务状态监控 · 套餐胶囊 · 中文倒计时 · Homebrew 分发"),
-        ("1.1.0", "仪表重设计：分组侧边栏 + hero 卡片"),
-        ("1.0.1", "安全与稳定性修复（凭证只读、刷新看门狗等）"),
-        ("1.0.0", "首个正式版"),
+        ("1.3.0", L("英文界面（全量文案，默认跟随系统语言）", "Full English localization (follows system language by default)")),
+        ("1.2.2", L("渐进渲染（先到先显示）· 设置页重组 · 官方社交图形标", "Progressive rendering · Settings regroup · Official social marks")),
+        ("1.2.1", L("外观预览缩略图 · 悬停反馈 · Token 工具入边栏 · 说明页降噪", "Appearance previews · Hover feedback · Token tools in sidebar")),
+        ("1.2.0", L("服务状态监控 · 套餐胶囊 · 中文倒计时 · Homebrew 分发", "Service status monitor · Plan chip · Homebrew")),
+        ("1.1.0", L("仪表重设计：分组侧边栏 + hero 卡片", "Dashboard redesign: grouped sidebar + hero cards")),
+        ("1.0.1", L("安全与稳定性修复（凭证只读、刷新看门狗等）", "Security & stability fixes")),
+        ("1.0.0", L("首个正式版", "First release")),
     ]
 
     var body: some View {
         Form {
-            Section("更新简要") {
+            Section(L("更新简要", "What\u{2019}s New")) {
                 ForEach(Self.releaseNotes.prefix(3), id: \.version) { item in
                     LabeledContent(item.version) {
                         Text(item.note).foregroundStyle(.secondary)
@@ -198,22 +199,22 @@ struct AboutDetail: View {
                 }
             }
             Section {
-                LabeledContent("版本", value: "Tokenitor v\(appVersion)")
+                LabeledContent(L("版本", "Version"), value: "Tokenitor v\(appVersion)")
                 // 社交入口：版本下方、右下角。官方图形标（GitHub Mark / X logo / 纸飞机），
                 // 指示性使用（链接到本项目/作者页面），单色随主题着色。
                 HStack(spacing: 12) {
                     Spacer()
-                    socialButton(help: "GitHub · 项目主页",
+                    socialButton(help: L("GitHub · 项目主页", "GitHub · Project"),
                                  url: "https://github.com/CSzcm8788/Tokenitor") {
                         BrandIcon.github.fill(style: FillStyle(eoFill: true))
                             .frame(width: 16, height: 16)
                     }
-                    socialButton(help: "X · 作者主页",
+                    socialButton(help: L("X · 作者主页", "X · Author"),
                                  url: "https://x.com/yukabiubiu") {
                         BrandIcon.x.fill(style: FillStyle(eoFill: true))
                             .frame(width: 14, height: 14)
                     }
-                    socialButton(help: "Telegram · 联系作者",
+                    socialButton(help: L("Telegram · 联系作者", "Telegram · Contact"),
                                  url: "https://t.me/yukabiubiu") {
                         Image(systemName: "paperplane")
                             .font(.system(size: 14, weight: .medium))
@@ -257,13 +258,13 @@ struct LanguageDetail: View {
                 Picker(selection: Binding(
                     get: { Settings.shared.language },
                     set: { Settings.shared.language = $0; LanguageManager.apply() })) {
-                    Text("跟随系统").tag("system")
+                    Text(L("跟随系统", "System")).tag("system")
                     Text("中文").tag("zh")
                     Text("English").tag("en")
-                } label: { Label("界面语言", systemImage: "globe") }
+                } label: { Label(L("界面语言", "Interface Language"), systemImage: "globe") }
                 .pickerStyle(.menu)
             } footer: {
-                Text("切换语言需重启应用生效。English 本地化逐步完善中。")
+                Text(L("切换语言需重启应用生效。", "Relaunch the app to apply the language change."))
             }
         }
         .formStyle(.grouped)
@@ -279,14 +280,14 @@ struct AppearanceDetail: View {
         Form {
             Section {
                 HStack(alignment: .top, spacing: 22) {
-                    thumb("浅色", key: "light")
-                    thumb("深色", key: "dark")
-                    thumb("跟随系统", key: "system")
+                    thumb(L("浅色", "Light"), key: "light")
+                    thumb(L("深色", "Dark"), key: "dark")
+                    thumb(L("跟随系统", "Auto"), key: "system")
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 6)
             } footer: {
-                Text("「跟随系统」随 macOS 的日夜外观自动切换。")
+                Text(L("「跟随系统」随 macOS 的日夜外观自动切换。", "\u{201C}Auto\u{201D} follows the macOS system appearance."))
             }
         }
         .formStyle(.grouped)
@@ -362,17 +363,17 @@ struct PopoverGlanceView: View {
             HStack(spacing: 8) {
                 Text("Tokenitor").font(.headline)
                 if let t = store.lastUpdate {
-                    Text("更新于 \(formatUpdatedAgo(t))")   // 面板级统一显示，卡片下不再挂小字
+                    Text(L("更新于 ", "Updated ") + formatUpdatedAgo(t))   // 面板级统一显示，卡片下不再挂小字
                         .font(.uiCaption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                glanceButton("chart.bar.xaxis", "Token 用量") { store.onOpenWindow(.tokens) }
-                glanceButton("gearshape", "设置") { store.onOpenWindow(.settings) }
-                glanceButton("arrow.clockwise", "刷新") { store.onRefresh() }
+                glanceButton("chart.bar.xaxis", L("Token 用量", "Token Usage")) { store.onOpenWindow(.tokens) }
+                glanceButton("gearshape", L("设置", "Settings")) { store.onOpenWindow(.settings) }
+                glanceButton("arrow.clockwise", L("刷新", "Refresh")) { store.onRefresh() }
             }
             if store.snapshots.isEmpty {
-                Text("正在获取用量…").font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
+                Text(L("正在获取用量…", "Fetching usage…")).font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
                     AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt)

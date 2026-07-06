@@ -75,29 +75,40 @@ enum UsageLevel {
     }
 }
 
-/// 「更新于」相对时间：刚刚 / N分钟前 / N小时前；超过一天显示 M月d日 HH:mm。
-func formatUpdatedAgo(_ date: Date, now: Date = Date()) -> String {
+/// 「更新于」相对时间：刚刚 / N分钟前（en: just now / 5m ago）；超过一天显示日期。
+/// english 参数默认取界面语言，测试可显式传入两种语言分别断言。
+func formatUpdatedAgo(_ date: Date, now: Date = Date(),
+                      english: Bool = L10n.isEnglish) -> String {
     let secs = Int(now.timeIntervalSince(date))
-    if secs < 60 { return "刚刚" }
-    if secs < 3600 { return "\(secs / 60)分钟前" }
-    if secs < 86400 { return "\(secs / 3600)小时前" }
-    let df = DateFormatter(); df.dateFormat = "M月d日 HH:mm"
+    if secs < 60 { return english ? "just now" : "刚刚" }
+    if secs < 3600 { return english ? "\(secs / 60)m ago" : "\(secs / 60)分钟前" }
+    if secs < 86400 { return english ? "\(secs / 3600)h ago" : "\(secs / 3600)小时前" }
+    let df = DateFormatter()
+    if english { df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "MMM d HH:mm" }
+    else { df.dateFormat = "M月d日 HH:mm" }
     return df.string(from: date)
 }
 
-/// 把重置时间格式化为中文倒计时："2小时30分" / "6天23小时" / "8月1日"。
-/// （英文版将随整体本地化提供，当前先统一中文。）
-func formatCountdown(to date: Date?, now: Date = Date()) -> String {
+/// 重置倒计时："2小时30分" / "6天23小时" / "8月1日"（en: "2h 30m" / "6d 23h" / "Aug 1"）。
+func formatCountdown(to date: Date?, now: Date = Date(),
+                     english: Bool = L10n.isEnglish) -> String {
     guard let date = date else { return "" }
     let secs = Int(date.timeIntervalSince(now))
-    if secs <= 0 { return "现在" }
+    if secs <= 0 { return english ? "now" : "现在" }
     if secs >= 9 * 86400 {          // 远期（如月度重置）显示日期
-        let df = DateFormatter(); df.dateFormat = "M月d日"
+        let df = DateFormatter()
+        if english { df.locale = Locale(identifier: "en_US_POSIX"); df.dateFormat = "MMM d" }
+        else { df.dateFormat = "M月d日" }
         return df.string(from: date)
     }
     let d = secs / 86400
     let h = (secs % 86400) / 3600
     let m = (secs % 3600) / 60
+    if english {
+        if d >= 1 { return h > 0 ? "\(d)d \(h)h" : "\(d)d" }
+        if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
+        return "\(m)m"
+    }
     if d >= 1 { return h > 0 ? "\(d)天\(h)小时" : "\(d)天" }
     if h > 0 { return m > 0 ? "\(h)小时\(m)分" : "\(h)小时" }
     return "\(m)分钟"

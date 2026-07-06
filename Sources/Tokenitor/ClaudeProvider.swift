@@ -36,7 +36,7 @@ final class ClaudeProvider: UsageProvider {
         ensureCacheLoaded()   // 启动后第一次从磁盘载入上次数据
         // 限流冷却中且有缓存 → 直接给缓存，跳过网络，避免继续撞 429
         if let cd = cooldownUntil, Date() < cd, !lastWindows.isEmpty {
-            completion(staleSnapshot(reason: "限流中"))
+            completion(staleSnapshot(reason: L("限流中", "Rate-limited")))
             return
         }
         auth.accessToken { token, err in
@@ -44,7 +44,7 @@ final class ClaudeProvider: UsageProvider {
                 guard let token = token else {
                     // 没有订阅凭证 = 未在使用 Claude 订阅 → 隐藏（有缓存则显示上次）
                     if self.lastWindows.isEmpty { completion(.absent(self.displayName)) }
-                    else { completion(self.staleSnapshot(reason: err ?? "凭证读取失败")) }
+                    else { completion(self.staleSnapshot(reason: err ?? L("凭证读取失败", "Credential read failed"))) }
                     return
                 }
                 self.callUsage(token: token) { status in
@@ -68,13 +68,14 @@ final class ClaudeProvider: UsageProvider {
                                         error: nil, note: nil))
         case .unauthorized:
             if refreshed {
-                completion(failOrCached("订阅 token 已失效，请重新用订阅账号 /login"))
+                completion(failOrCached(L("订阅 token 已失效，请重新用订阅账号 /login",
+                                          "Subscription token invalid; run /login again")))
             } else {
                 // token 过期，强制续期一次再试（回调统一跳回 stateQueue 再碰共享状态）
                 auth.accessToken(forceRefresh: true) { token2, err2 in
                     self.stateQueue.async {
                         guard let token2 = token2 else {
-                            completion(self.failOrCached(err2 ?? "订阅 token 已过期且续期失败，请重新用订阅账号 /login（详见 README）"))
+                            completion(self.failOrCached(err2 ?? L("订阅 token 已过期且续期失败，请重新用订阅账号 /login（详见 README）", "Token expired and refresh failed; run /login again (see README)")))
                             return
                         }
                         self.callUsage(token: token2) { status in
@@ -86,7 +87,7 @@ final class ClaudeProvider: UsageProvider {
         case .rateLimited(let retryAfter):
             // 默认退避 3 分钟 + 随机抖动，降低再次撞 429 的概率
             cooldownUntil = Date().addingTimeInterval((retryAfter ?? 180) + Double.random(in: 0...30))
-            completion(failOrCached("接口限流，显示上次数据"))
+            completion(failOrCached(L("接口限流，显示上次数据", "Rate-limited; showing last data")))
         case .failed(let msg):
             completion(failOrCached(msg))
         }
@@ -167,10 +168,10 @@ final class ClaudeProvider: UsageProvider {
 
         URLSession.shared.dataTask(with: req) { data, resp, err in
             if let err = err {
-                completion(.failed("网络错误: \(err.localizedDescription)"))
+                completion(.failed(L("网络错误: ", "Network error: ") + err.localizedDescription))
                 return
             }
-            guard let data = data else { completion(.failed("空响应")); return }
+            guard let data = data else { completion(.failed(L("空响应", "Empty response"))); return }
             DebugLog.dump("claude-usage", data)
 
             if let http = resp as? HTTPURLResponse {
@@ -186,11 +187,11 @@ final class ClaudeProvider: UsageProvider {
                 }
             }
             guard let root = try? JSONSerialization.jsonObject(with: data) else {
-                completion(.failed("解析失败")); return
+                completion(.failed(L("解析失败", "Parse failed"))); return
             }
             let windows = self.parse(root)
             if windows.isEmpty {
-                completion(.failed("未识别到用量字段（接口可能已变动，可开启调试转储排查）"))
+                completion(.failed(L("未识别到用量字段（接口可能已变动，可开启调试转储排查）", "No usage fields recognized (endpoint may have changed; enable debug dumps)")))
             } else {
                 completion(.ok(windows))
             }

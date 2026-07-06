@@ -12,14 +12,15 @@ struct NotchCardsView: View {
                     .foregroundStyle(.primary)
                 Spacer()
                 if let t = store.lastUpdate {
-                    Text("更新于 \(formatUpdatedAgo(t))")
+                    Text(L("更新于 ", "Updated ") + formatUpdatedAgo(t))
                         .font(.uiCaption)
                         .foregroundStyle(.secondary)
                 }
             }
 
             if store.snapshots.isEmpty {
-                Text("暂无数据（点 Dock 图标打开主窗口）")
+                Text(L("暂无数据（点 Dock 图标打开主窗口）",
+                       "No data yet (click the Dock icon to open the main window)"))
                     .font(.uiCaption)
                     .foregroundStyle(.secondary)
             } else {
@@ -54,7 +55,8 @@ struct NotchCardsView: View {
                                 .font(.num)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text("剩 \(Int(w.remainingPercent.rounded()))%")
+                            Text(L("剩 \(Int(w.remainingPercent.rounded()))%",
+                                   "\(Int(w.remainingPercent.rounded()))% left"))
                                 .font(.num)
                             let cd = formatCountdown(to: w.resetsAt)
                             if !cd.isEmpty {

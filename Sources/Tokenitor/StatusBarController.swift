@@ -98,9 +98,9 @@ final class StatusBarController: NSObject {
 
     private func showContextMenu() {
         let menu = NSMenu()
-        let r = NSMenuItem(title: "立即刷新", action: #selector(refreshNow), keyEquivalent: "r"); r.target = self
-        let h = NSMenuItem(title: "使用说明", action: #selector(showHelp), keyEquivalent: ""); h.target = self
-        let q = NSMenuItem(title: "退出 Tokenitor", action: #selector(quit), keyEquivalent: "q"); q.target = self
+        let r = NSMenuItem(title: L("立即刷新", "Refresh Now"), action: #selector(refreshNow), keyEquivalent: "r"); r.target = self
+        let h = NSMenuItem(title: L("使用说明", "Guide"), action: #selector(showHelp), keyEquivalent: ""); h.target = self
+        let q = NSMenuItem(title: L("退出 Tokenitor", "Quit Tokenitor"), action: #selector(quit), keyEquivalent: "q"); q.target = self
         menu.addItem(r); menu.addItem(h); menu.addItem(.separator()); menu.addItem(q)
         // 临时挂上菜单弹出，弹完即清，保证左键仍是弹层而非此菜单
         statusItem.menu = menu

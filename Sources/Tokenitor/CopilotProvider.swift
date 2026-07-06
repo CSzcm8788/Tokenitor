@@ -27,7 +27,7 @@ final class CopilotProvider: UsageProvider {
             self.request("https://api.github.com/copilot_internal/user", token: token) { sc, root in
                 guard sc == 200, let root = root else {
                     // 已登录但拿不到用量（端点变动 / 限流）→ 灰色状态提示
-                    completion(.failed(self.displayName, "已登录（用量获取失败）"))
+                    completion(.failed(self.displayName, L("已登录（用量获取失败）", "Signed in (usage fetch failed)")))
                     return
                 }
                 completion(self.parse(root))

@@ -10,16 +10,22 @@ enum ClaudeRiskGate {
         if Settings.shared.claudeRiskAccepted { return true }
         let a = NSAlert()
         a.alertStyle = .warning
-        a.messageText = "开启 Claude 用量读取？"
-        a.informativeText = """
+        a.messageText = L("开启 Claude 用量读取？", "Enable Claude usage reading?")
+        a.informativeText = L("""
         此功能通过 Anthropic 未公开的接口、使用你订阅账号的本地登录凭证来读取用量。
 
         请注意：按 Anthropic 条款，订阅（Free / Pro / Max）的登录凭证仅可用于 Claude Code 与 Claude.ai。在第三方工具中使用可能违反其条款，并可能导致账号受限或封禁。
 
         是否在了解并自行承担风险的前提下开启？
-        """
-        a.addButton(withTitle: "我已了解风险，开启")
-        a.addButton(withTitle: "取消")
+        """, """
+        This feature reads usage via an undocumented Anthropic endpoint using your local subscription credentials.
+
+        Per Anthropic's terms, subscription (Free / Pro / Max) credentials are intended for Claude Code and Claude.ai only. Third-party use may violate those terms and could lead to account restrictions.
+
+        Enable at your own risk?
+        """)
+        a.addButton(withTitle: L("我已了解风险，开启", "I understand the risk — enable"))
+        a.addButton(withTitle: L("取消", "Cancel"))
         NSApp.activate(ignoringOtherApps: true)
         let resp = a.runModal()
         if resp == .alertFirstButtonReturn {

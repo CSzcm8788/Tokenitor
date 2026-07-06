@@ -1,8 +1,9 @@
 import AppKit
 
-/// 免责声明：首次启动弹一次，需用户同意；不同意则退出。
+/// 免责声明：首次启动弹一次，需用户同意；不同意则退出。文本随界面语言（L10n）。
 enum Disclaimer {
-    static let text = """
+    static var text: String {
+        L("""
     Tokenitor（以下简称"本应用"）是由独立开发者开发的 macOS 工具，与以下任何公司均无关联、合作、赞助或官方关系：
 
     • Anthropic Inc. 及其产品 Claude
@@ -10,7 +11,7 @@ enum Disclaimer {
     • Google LLC 及其产品 Gemini
     • GitHub, Inc. / Microsoft Corporation 及其产品 GitHub Copilot
 
-    本应用不内置、不展示任何第三方 Logo 图片，仅以各服务的名称作指示性标识以区分第三方 AI 服务；相关名称/商标的知识产权归各公司所有。
+    本应用不内置、不展示任何 AI 服务商的 Logo 图片，仅以各服务的名称作指示性标识以区分第三方 AI 服务；相关名称/商标的知识产权归各公司所有。
 
     数据来源说明：
     本应用仅通过用户授权的方式读取本地数据，不访问任何服务的私有接口或进行未经授权的数据抓取。用量数据的准确性取决于原始服务的公开信息及本地记录。
@@ -20,17 +21,36 @@ enum Disclaimer {
     开发者不对用量数据的实时性、准确性或完整性作出任何明示或暗示的保证。
 
     继续使用本应用即表示您已充分阅读、理解并同意以上所有条款。
-    """
+    """, """
+    Tokenitor ("this app") is a macOS tool by an independent developer, with no affiliation, partnership, sponsorship, or official relationship with any of the following companies:
+
+    • Anthropic Inc. and its product Claude
+    • OpenAI and its products Codex / ChatGPT
+    • Google LLC and its product Gemini
+    • GitHub, Inc. / Microsoft Corporation and their product GitHub Copilot
+
+    This app does not bundle or display any AI vendor's logo; services are identified by name only, as nominative references. All names and trademarks belong to their respective owners.
+
+    Data sources:
+    This app reads local data only with your authorization; it does not access private interfaces or scrape data without authorization. Accuracy depends on the original services' public information and local records.
+
+    This app does not represent any official position, view, or endorsement of the companies above. You use this app at your own risk.
+
+    The developer makes no express or implied warranty as to the timeliness, accuracy, or completeness of usage data.
+
+    By continuing to use this app you confirm you have read, understood, and agreed to all the terms above.
+    """)
+    }
 
     /// 若尚未同意，弹出模态声明；同意则记录，拒绝则退出 App。
     static func presentIfNeeded() {
         guard !Settings.shared.disclaimerAccepted else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Tokenitor · 重要声明与免责条款"
+        alert.messageText = L("Tokenitor · 重要声明与免责条款", "Tokenitor · Notice & Disclaimer")
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "同意并继续")
-        alert.addButton(withTitle: "退出")
+        alert.addButton(withTitle: L("同意并继续", "Agree & Continue"))
+        alert.addButton(withTitle: L("退出", "Quit"))
 
         // 可滚动的正文
         let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 460, height: 300))

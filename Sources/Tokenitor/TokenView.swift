@@ -17,16 +17,16 @@ struct TokenView: View {
         VStack(alignment: .leading, spacing: 14) {
             if inPopover {
                 HStack(spacing: 10) {
-                    IconButton(systemName: "chevron.left", help: "返回") { store.page = .usage }
+                    IconButton(systemName: "chevron.left", help: L("返回", "Back")) { store.page = .usage }
                     Text("Token usage").font(.pageTitle)
                     Spacer()
-                    IconButton(systemName: "arrow.clockwise", help: "刷新", prominent: true) { store.onRefresh() }
-                    IconButton(systemName: "questionmark", help: "说明") { store.page = .tokenInfo }
+                    IconButton(systemName: "arrow.clockwise", help: L("刷新", "Refresh"), prominent: true) { store.onRefresh() }
+                    IconButton(systemName: "questionmark", help: L("说明", "Info")) { store.page = .tokenInfo }
                 }
             }
 
             if store.tokenStats.isEmpty {
-                Text("今日暂无本地 token 记录。\n用过 Codex 或 Claude Code 后，会从其本地会话文件里读取并汇总。")
+                Text(L("今日暂无本地 token 记录。\n用过 Codex 或 Claude Code 后，会从其本地会话文件里读取并汇总。", "No local token records today.\nAfter you use Codex or Claude Code, usage is aggregated from their local session files."))
                     .font(.uiCaption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -50,14 +50,14 @@ struct TokenInfoView: View {
         VStack(alignment: .leading, spacing: 14) {
             if inPopover {
                 HStack(spacing: 10) {
-                    IconButton(systemName: "chevron.left", help: "返回") { store.page = .tokens }
-                    Text("说明").font(.pageTitle)
+                    IconButton(systemName: "chevron.left", help: L("返回", "Back")) { store.page = .tokens }
+                    Text(L("说明", "Info")).font(.pageTitle)
                     Spacer()
                 }
             }
 
-            note("成本口径", "成本为按公开定价（截至 \(Pricing.asOf)）估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。")
-            note("Claude", "仅 Claude Code 终端会把 token 写到本地（~/.claude/projects）；Mac app / 网页不写本地，故 Token 页无 Claude 数据。")
+            note(L("成本口径", "Cost basis"), L("成本为按公开定价（截至 \(Pricing.asOf)）估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。", "Cost is an equivalent-spend estimate from public pricing (as of \(Pricing.asOf)), not your subscription bill; models without pricing show \u{201C}—\u{201D}."))
+            note("Claude", L("仅 Claude Code 终端会把 token 写到本地（~/.claude/projects）；Mac app / 网页不写本地，故 Token 页无 Claude 数据。", "Only the Claude Code terminal writes tokens locally (~/.claude/projects); the Mac app / web do not, so no Claude data here."))
 
             Spacer(minLength: 0)
         }
@@ -119,13 +119,13 @@ private struct TokenStatCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(stat.tool).font(.sectionTitle)
                 if let t = updatedAt {
-                    Text("更新于 \(formatUpdatedAgo(t))")
+                    Text(L("更新于 ", "Updated ") + formatUpdatedAgo(t))
                         .font(.uiCaption)
                         .foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            Picker("周期", selection: $period) {
+            Picker(L("周期", "Period"), selection: $period) {
                 Text("Day").tag(TokenPeriod.day)
                 Text("Week").tag(TokenPeriod.week)
                 Text("Month").tag(TokenPeriod.month)
@@ -199,7 +199,7 @@ private struct TokenStatCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("TOKENS BY MODEL").font(.uiLabel).foregroundStyle(.secondary)
             if report.models.isEmpty {
-                Text("本周期无数据").font(.num).foregroundStyle(.tertiary).padding(.vertical, 2)
+                Text(L("本周期无数据", "No data in this period")).font(.num).foregroundStyle(.tertiary).padding(.vertical, 2)
             } else {
                 let maxV = max(report.models.map { $0.counts.total }.max() ?? 1, 1)
                 let shares = Self.sharePercents(report.models.map { $0.counts.total })
@@ -250,7 +250,7 @@ private struct TokenStatCard: View {
                 CostDonutChart(models: costModels, size: 100, thickness: 15)
             }
             if !unpriced.isEmpty {
-                Text("\(unpriced.count) 个模型没有定价数据（成本未计入）：\(unpriced.map(\.model).joined(separator: ", "))")
+                Text(L("\(unpriced.count) 个模型没有定价数据（成本未计入）：\(unpriced.map(\.model).joined(separator: ", "))", "\(unpriced.count) model(s) without pricing (cost excluded): \(unpriced.map(\.model).joined(separator: ", "))"))
                     .font(.numMicro)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)

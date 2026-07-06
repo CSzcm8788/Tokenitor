@@ -64,7 +64,7 @@ final class CopilotAuth {
                          completion: @escaping (_ ok: Bool, _ message: String?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             guard let dc = self.requestDeviceCode() else {
-                completion(false, "获取设备码失败（检查网络，以及 OAuth App 是否已勾选 Enable Device Flow）")
+                completion(false, L("获取设备码失败（检查网络，以及 OAuth App 是否已勾选 Enable Device Flow）", "Failed to get device code (check network and that Device Flow is enabled)"))
                 return
             }
             onCode(dc.userCode, dc.verificationURI)
@@ -78,7 +78,7 @@ final class CopilotAuth {
     /// （device flow 最长可轮 15 分钟，占死一个工作线程会加剧线程池饥饿）。
     private func pollLoop(deviceCode: String, interval: Int, deadline: Date,
                           completion: @escaping (_ ok: Bool, _ message: String?) -> Void) {
-        guard Date() < deadline else { completion(false, "授权超时，请重试"); return }
+        guard Date() < deadline else { completion(false, L("授权超时，请重试", "Authorization timed out, please retry")); return }
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(interval)) {
             let (token, err) = self.pollToken(deviceCode: deviceCode)
             if let token {
@@ -101,11 +101,11 @@ final class CopilotAuth {
 
     private func friendly(_ e: String) -> String {
         switch e {
-        case "access_denied": return "已在浏览器取消授权"
-        case "expired_token": return "验证码已过期，请重试"
-        case "incorrect_client_credentials": return "Client ID 有误"
-        case "device_flow_disabled": return "该 OAuth App 未开启 Device Flow（去 GitHub 勾选 Enable Device Flow）"
-        default: return "授权失败：\(e)"
+        case "access_denied": return L("已在浏览器取消授权", "Authorization canceled in browser")
+        case "expired_token": return L("验证码已过期，请重试", "Code expired, please retry")
+        case "incorrect_client_credentials": return L("Client ID 有误", "Invalid client ID")
+        case "device_flow_disabled": return L("该 OAuth App 未开启 Device Flow（去 GitHub 勾选 Enable Device Flow）", "Device Flow not enabled for this OAuth App")
+        default: return L("授权失败：\(e)", "Authorization failed: \(e)")
         }
     }
 

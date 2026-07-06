@@ -70,7 +70,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// 供「测试通知」按钮调用。
-    func test() { notify(title: "Tokenitor 测试通知", body: "如果你看到这条，通知就正常了 ✅") }
+    func test() { notify(title: L("Tokenitor 测试通知", "Tokenitor Test Notification"), body: L("如果你看到这条，通知就正常了 ✅", "If you can see this, notifications work ✅")) }
 
     /// 按 AppleScript 双引号字符串规则完整转义（反斜杠必须先于引号处理，
     /// 否则含 `\` 的文案会把脚本的收尾引号转义掉、破坏脚本结构）。
@@ -116,15 +116,15 @@ final class AlertEngine {
                 if remaining <= crit {
                     if prev < 2 {
                         Notifier.shared.notify(
-                            title: "⚠️ \(snap.name) \(w.label) 剩余用量即将耗尽",
-                            body: "仅剩 \(Int(remaining))%，\(resetText(w))")
+                            title: L("⚠️ \(snap.name) \(w.label) 剩余用量即将耗尽", "⚠️ \(snap.name) \(w.label) almost exhausted"),
+                            body: L("仅剩 \(Int(remaining))%，\(resetText(w))", "Only \(Int(remaining))% left, \(resetText(w))"))
                         fired[key] = 2
                     }
                 } else if remaining <= warn {
                     if prev < 1 {
                         Notifier.shared.notify(
-                            title: "🟡 \(snap.name) \(w.label) 剩余用量偏低",
-                            body: "剩余 \(Int(remaining))%，\(resetText(w))")
+                            title: L("🟡 \(snap.name) \(w.label) 剩余用量偏低", "🟡 \(snap.name) \(w.label) running low"),
+                            body: L("剩余 \(Int(remaining))%，\(resetText(w))", "\(Int(remaining))% left, \(resetText(w))"))
                         fired[key] = 1
                     }
                 } else {
@@ -137,6 +137,6 @@ final class AlertEngine {
 
     private func resetText(_ w: UsageWindow) -> String {
         let c = formatCountdown(to: w.resetsAt)
-        return c.isEmpty ? "暂无重置时间" : "约 \(c) 后重置"
+        return c.isEmpty ? L("暂无重置时间", "no reset time") : L("约 \(c) 后重置", "resets in ~\(c)")
     }
 }

@@ -58,7 +58,8 @@ struct AIMonitorPanel: View {
             serviceChip
             Spacer(minLength: 0)
             if let t = updatedAt {
-                chip("更新于 \(formatUpdatedAgo(t))", fg: .secondary, bg: Color.primary.opacity(0.06))
+                chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),
+                     fg: .secondary, bg: Color.primary.opacity(0.06))
             }
         }
     }
@@ -68,9 +69,9 @@ struct AIMonitorPanel: View {
     private var serviceChip: some View {
         switch serviceIndicator {
         case "minor":
-            chip("服务降级", fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
+            chip(L("服务降级", "Degraded"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
         case "major", "critical":
-            chip("服务中断", fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
+            chip(L("服务中断", "Outage"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
         default:
             EmptyView()
         }
@@ -82,9 +83,9 @@ struct AIMonitorPanel: View {
         if snap.ok && !snap.isStale {
             chip("LIVE", fg: GaugeColor.healthy, bg: GaugeColor.healthy.opacity(0.16))
         } else if snap.isStale {
-            chip("缓存", fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
+            chip(L("缓存", "Cached"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
         } else {
-            chip("离线", fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
+            chip(L("离线", "Offline"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
         }
     }
 
@@ -113,7 +114,8 @@ struct AIMonitorPanel: View {
                     .font(.num)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("剩 \(Int(w.remainingPercent.rounded()))%")
+                Text(L("剩 \(Int(w.remainingPercent.rounded()))%",
+                       "\(Int(w.remainingPercent.rounded()))% left"))
                     .font(.num)
                 if !cd.isEmpty {
                     Text("↻\(cd)")

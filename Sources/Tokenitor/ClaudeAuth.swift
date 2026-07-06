@@ -59,7 +59,7 @@ final class ClaudeAuth {
     /// 回调：(token, errorMessage)。token 为 nil 时给出原因。
     func accessToken(forceRefresh: Bool = false, completion: @escaping (String?, String?) -> Void) {
         guard let creds = loadCreds() else {
-            completion(nil, "未找到 Claude 订阅凭证（请用订阅账号 /login 一次）")
+            completion(nil, L("未找到 Claude 订阅凭证（请用订阅账号 /login 一次）", "No Claude subscription credentials found (run /login once with your subscription account)"))
             return
         }
         let nearExpiry = creds.expiresAt.map { $0.timeIntervalSinceNow < 300 } ?? false  // 提前 5 分钟续
@@ -70,7 +70,7 @@ final class ClaudeAuth {
         // Claude Code 的凭证只读：过期也不代它续期（见类头注释），提示用户让 Claude Code 自己续。
         guard creds.ownedByTokenitor else {
             if forceRefresh {
-                completion(nil, "订阅 token 已过期。请在 Claude Code 里任意执行一次请求让它自动续期，再回来点刷新")
+                completion(nil, L("订阅 token 已过期。请在 Claude Code 里任意执行一次请求让它自动续期，再回来点刷新", "Subscription token expired. Run any request in Claude Code so it refreshes itself, then hit Refresh here"))
             } else {
                 completion(creds.access, nil)  // 临近过期但可能仍可用，先试
             }
@@ -79,7 +79,7 @@ final class ClaudeAuth {
         guard let rt = creds.refresh, !isDead(rt) else {
             // 没有 refresh token / token 已确认失效：只能先用现有 access（可能已过期）
             if forceRefresh {
-                completion(nil, "订阅登录已失效，请重新用订阅账号 /login")
+                completion(nil, L("订阅登录已失效，请重新用订阅账号 /login", "Subscription login invalid; run /login again with your subscription account"))
             } else {
                 completion(creds.access, nil)
             }
@@ -95,7 +95,7 @@ final class ClaudeAuth {
                 if err == "invalid_grant" {
                     self.markDead(rt)
                     self.purgeCache()
-                    completion(nil, "订阅登录已失效，请重新用订阅账号 /login")
+                    completion(nil, L("订阅登录已失效，请重新用订阅账号 /login", "Subscription login invalid; run /login again with your subscription account"))
                 } else {
                     completion(creds.access, err)  // 暂态失败：退回旧 token
                 }
@@ -125,7 +125,7 @@ final class ClaudeAuth {
     private func tryAttempt(_ attempts: [Attempt], _ i: Int, refreshToken: String,
                             completion: @escaping (Creds?, String?) -> Void) {
         guard i < attempts.count else {
-            completion(nil, "自动续期失败，请重新用订阅账号 /login")
+            completion(nil, L("自动续期失败，请重新用订阅账号 /login", "Auto-refresh failed; run /login again with your subscription account"))
             return
         }
         let a = attempts[i]

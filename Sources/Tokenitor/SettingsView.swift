@@ -9,8 +9,8 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             if inPopover {
                 HStack(spacing: 10) {
-                    IconButton(systemName: "chevron.left", help: "返回") { store.page = .usage }
-                    Text("设置").font(.pageTitle)
+                    IconButton(systemName: "chevron.left", help: L("返回", "Back")) { store.page = .usage }
+                    Text(L("设置", "Settings")).font(.pageTitle)
                     Spacer()
                 }
             }

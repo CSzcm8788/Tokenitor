@@ -43,14 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         let name = "Tokenitor"
-        appMenu.addItem(withTitle: "关于 \(name)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        appMenu.addItem(withTitle: "使用说明", action: #selector(showHelp), keyEquivalent: "?").target = self
-        appMenu.addItem(withTitle: "设置…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: L("关于 \(name)", "About \(name)"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: L("使用说明", "Guide"), action: #selector(showHelp), keyEquivalent: "?").target = self
+        appMenu.addItem(withTitle: L("设置…", "Settings…"), action: #selector(showSettings), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "隐藏 \(name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        appMenu.addItem(withTitle: "刷新", action: #selector(menuRefresh), keyEquivalent: "r").target = self
+        appMenu.addItem(withTitle: L("隐藏 \(name)", "Hide \(name)"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: L("刷新", "Refresh"), action: #selector(menuRefresh), keyEquivalent: "r").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "退出 \(name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L("退出 \(name)", "Quit \(name)"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         NSApp.mainMenu = mainMenu
     }
@@ -89,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 contentRect: NSRect(x: 0, y: 0, width: 580, height: 640),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered, defer: false)
-            w.title = "Tokenitor · 使用说明"
+            w.title = L("Tokenitor · 使用说明", "Tokenitor · Guide")
             w.contentViewController = HelpViewController()
             w.center()
             w.isReleasedWhenClosed = false
@@ -191,18 +191,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     NSPasteboard.general.setString(userCode, forType: .string)
                     if let u = URL(string: verifyURL) { NSWorkspace.shared.open(u) }
                     let a = NSAlert()
-                    a.messageText = "授权 Copilot"
-                    a.informativeText = "验证码：\(userCode)（已复制到剪贴板）\n\n浏览器已打开 GitHub 授权页，粘贴验证码并点 Authorize。\n授权成功后本应用会自动完成——期间请勿退出。"
-                    a.addButton(withTitle: "好")
+                    a.messageText = L("授权 Copilot", "Authorize Copilot")
+                    a.informativeText = L("验证码：\(userCode)（已复制到剪贴板）\n\n浏览器已打开 GitHub 授权页，粘贴验证码并点 Authorize。\n授权成功后本应用会自动完成——期间请勿退出。", "Code: \(userCode) (copied to clipboard)\n\nThe GitHub authorization page is open in your browser — paste the code and click Authorize.\nThis app will finish automatically; please keep it running.")
+                    a.addButton(withTitle: L("好", "OK"))
                     a.runModal()
                 }
             },
             completion: { [weak self] ok, msg in
                 DispatchQueue.main.async {
                     let a = NSAlert()
-                    a.messageText = ok ? "Copilot 授权成功" : "Copilot 授权失败"
+                    a.messageText = ok ? L("Copilot 授权成功", "Copilot authorized") : L("Copilot 授权失败", "Copilot authorization failed")
                     if let msg { a.informativeText = msg }
-                    a.addButton(withTitle: "好")
+                    a.addButton(withTitle: L("好", "OK"))
                     a.runModal()
                     if ok {
                         Settings.shared.copilotEnabled = true   // 授权成功即开启 Copilot

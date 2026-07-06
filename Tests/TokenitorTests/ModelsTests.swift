@@ -7,22 +7,32 @@ final class ModelsTests: XCTestCase {
 
     func testCountdownPastAndNil() {
         let now = Date()
-        XCTAssertEqual(formatCountdown(to: nil, now: now), "")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(-10), now: now), "现在")
+        XCTAssertEqual(formatCountdown(to: nil, now: now, english: false), "")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(-10), now: now, english: false), "现在")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(-10), now: now, english: true), "now")
     }
 
     func testCountdownMinutesHoursDays() {
         let now = Date()
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(5 * 60), now: now), "5分钟")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600 + 30 * 60), now: now), "2小时30分")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600), now: now), "2小时")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(3 * 86400), now: now), "3天")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(6 * 86400 + 23 * 3600), now: now), "6天23小时")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(5 * 60), now: now, english: false), "5分钟")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600 + 30 * 60), now: now, english: false), "2小时30分")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600), now: now, english: false), "2小时")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(3 * 86400), now: now, english: false), "3天")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(6 * 86400 + 23 * 3600), now: now, english: false), "6天23小时")
+    }
+
+    func testCountdownEnglish() {
+        let now = Date()
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(5 * 60), now: now, english: true), "5m")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600 + 30 * 60), now: now, english: true), "2h 30m")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(6 * 86400 + 23 * 3600), now: now, english: true), "6d 23h")
+        let far = formatCountdown(to: now.addingTimeInterval(10 * 86400), now: now, english: true)
+        XCTAssertFalse(far.contains("月"), "英文远期应为 MMM d，实际: \(far)")
     }
 
     func testCountdownFarFutureShowsDate() {
         let now = Date()
-        let out = formatCountdown(to: now.addingTimeInterval(10 * 86400), now: now)
+        let out = formatCountdown(to: now.addingTimeInterval(10 * 86400), now: now, english: false)
         XCTAssertTrue(out.contains("月") && out.contains("日"), "≥9 天应显示 M月d日，实际: \(out)")
     }
 
@@ -30,11 +40,13 @@ final class ModelsTests: XCTestCase {
 
     func testUpdatedAgo() {
         let now = Date()
-        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-5), now: now), "刚刚")
-        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-90), now: now), "1分钟前")
-        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-2 * 3600), now: now), "2小时前")
-        XCTAssertTrue(formatUpdatedAgo(now.addingTimeInterval(-3 * 86400), now: now).contains("月"),
+        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-5), now: now, english: false), "刚刚")
+        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-90), now: now, english: false), "1分钟前")
+        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-2 * 3600), now: now, english: false), "2小时前")
+        XCTAssertTrue(formatUpdatedAgo(now.addingTimeInterval(-3 * 86400), now: now, english: false).contains("月"),
                       "超过一天应显示日期")
+        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-5), now: now, english: true), "just now")
+        XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-90), now: now, english: true), "1m ago")
     }
 
     // MARK: - UsageLevel 档位
