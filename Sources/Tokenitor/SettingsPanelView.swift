@@ -93,9 +93,15 @@ struct SettingsPanelView: View {
                                   { Settings.shared.notchEnabled = $0; store.onSettingsChanged() })) {
                     Label("刘海面板", systemImage: "rectangle.topthird.inset.filled")
                 }
+                Toggle(isOn: bind({ Settings.shared.statusMonitorEnabled },
+                                  { Settings.shared.statusMonitorEnabled = $0; store.onSettingsChanged() })) {
+                    Label("服务状态监控", systemImage: "waveform.path.ecg")
+                }
                 Toggle(isOn: bind({ Settings.shared.debugDump }, { Settings.shared.debugDump = $0 })) {
                     Label("调试转储", systemImage: "ladybug")
                 }
+            } footer: {
+                Text("服务状态监控：每 5 分钟轮询各厂商公开状态页（status.claude.com / status.openai.com / githubstatus.com），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。")
             }
 
             // 动作（两个并排）

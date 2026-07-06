@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Tokenitor"
 BUNDLE_ID="com.tokenitor.app"
-VERSION="1.1.0"
+VERSION="1.2.0"
 BUILD_NUM="$(date +%Y%m%d%H%M)"   # 每次构建递增的 build 号：让 macOS 注意到图标变化、刷新通知图标缓存
 BUILD_DIR=".build/release"
 APP_DIR="dist/${APP_NAME}.app"

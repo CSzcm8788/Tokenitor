@@ -36,6 +36,7 @@ struct HelpView: View {
                                 [("内部", .warn), ("默认关", .mut)],
                                 "月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot`。")
                     note("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。")
+                    note("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页（`status.claude.com` / `status.openai.com` / `githubstatus.com`），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。配额低 ≠ 服务挂了，两者互补。")
                 }
 
                 // ② Token 页（本地成本），与配额独立。原 Token 页折叠「说明」并入此处。

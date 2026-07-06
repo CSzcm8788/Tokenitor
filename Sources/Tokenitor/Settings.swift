@@ -99,6 +99,12 @@ final class Settings {
         set { d.set(newValue, forKey: "compactTitle") }
     }
 
+    // 厂商服务状态监控（各家公开 status page，5 分钟轮询；胶囊 + 菜单栏指示点）
+    var statusMonitorEnabled: Bool {
+        get { d.object(forKey: "statusMonitorEnabled") as? Bool ?? true }
+        set { d.set(newValue, forKey: "statusMonitorEnabled") }
+    }
+
     // 写调试转储（原始 JSON）到 ~/.tokenitor/debug/
     var debugDump: Bool {
         get { d.object(forKey: "debugDump") as? Bool ?? false }

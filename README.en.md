@@ -29,6 +29,12 @@ Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; r
 
 **Download (recommended):** grab `Tokenitor.dmg` from [Releases](https://github.com/CSzcm8788/Tokenitor/releases/latest), open it, drag Tokenitor into Applications, and double-click to run (notarized by Apple — no Gatekeeper prompt). Requires **macOS 13 (Ventura) or later**.
 
+**Homebrew:**
+
+```bash
+brew install --cask CSzcm8788/tap/tokenitor
+```
+
 **Build from source:** requires macOS 13+ and the Xcode command-line tools (`xcode-select --install`; **no need to open Xcode**).
 
 ```bash

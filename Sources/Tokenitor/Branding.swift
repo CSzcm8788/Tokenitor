@@ -4,7 +4,7 @@ import SwiftUI
 enum AppInfo {
     /// 打包运行时从 Info.plist 读；`swift run` 裸跑时兜底。
     static let version: String =
-        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.1.0"
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.2.0"
     /// 诚实标识自己的 User-Agent，不伪装任何官方客户端。
     static let userAgent = "Tokenitor/\(version)"
 }

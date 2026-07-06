@@ -14,6 +14,9 @@ final class UsageStore: ObservableObject {
     @Published var tokenStats: [TokenStat] = []
     @Published var tokensUpdate: Date? = nil
 
+    // 厂商服务状态（AI 名 → statuspage indicator），由 StatusMonitor 每 5 分钟更新
+    @Published var serviceStatus: [String: String] = [:]
+
     // 主窗口：用户是否已手动拖动过窗口。true 后内容改为「填充窗口宽 + 顶对齐」，不再自动贴合高度。
     @Published var fillHeight = false
 

@@ -6,9 +6,17 @@ struct NotchCardsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Tokenitor")
-                .font(.sectionTitle)
-                .foregroundStyle(.primary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Tokenitor")
+                    .font(.sectionTitle)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if let t = store.lastUpdate {
+                    Text("更新于 \(formatUpdatedAgo(t))")
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             if store.snapshots.isEmpty {
                 Text("暂无数据（点 Dock 图标打开主窗口）")

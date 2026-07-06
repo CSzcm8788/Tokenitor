@@ -24,8 +24,10 @@ struct ProviderSnapshot {
     /// 采集是否成功；失败时给出原因，UI 里显示灰色状态
     var ok: Bool
     var error: String?
-    /// 可选说明文字，显示在该工具标题下方（如“账号共享用量”）
+    /// 可选说明文字（仅用于日志/调试；卡片不再渲染小字，保持风格统一）
     var note: String? = nil
+    /// 套餐名（如 Copilot 的 "Individual"），hero 卡片显示为胶囊
+    var plan: String? = nil
     /// 是否在 UI 中隐藏（未安装/未登录/未使用 → 界面不显示这一栏）
     var hidden: Bool = false
     /// 是否为过期缓存数据（限流/断网时展示上次成功结果）。UI 照常显示，但告警引擎跳过，
@@ -73,33 +75,30 @@ enum UsageLevel {
     }
 }
 
-/// 「更新于」相对时间：刚刚 / N分钟前 / N小时前；超过一天显示 M/d HH:mm。
+/// 「更新于」相对时间：刚刚 / N分钟前 / N小时前；超过一天显示 M月d日 HH:mm。
 func formatUpdatedAgo(_ date: Date, now: Date = Date()) -> String {
     let secs = Int(now.timeIntervalSince(date))
     if secs < 60 { return "刚刚" }
     if secs < 3600 { return "\(secs / 60)分钟前" }
     if secs < 86400 { return "\(secs / 3600)小时前" }
-    let df = DateFormatter(); df.dateFormat = "M/d HH:mm"
+    let df = DateFormatter(); df.dateFormat = "M月d日 HH:mm"
     return df.string(from: date)
 }
 
-/// 把重置时间格式化为 "2h30m" / "thu 13h" 之类的倒计时文案。
+/// 把重置时间格式化为中文倒计时："2小时30分" / "6天23小时" / "8月1日"。
+/// （英文版将随整体本地化提供，当前先统一中文。）
 func formatCountdown(to date: Date?, now: Date = Date()) -> String {
     guard let date = date else { return "" }
     let secs = Int(date.timeIntervalSince(now))
-    if secs <= 0 { return "now" }
-    if secs >= 9 * 86400 {          // 远期（如月度重置）显示日期 M/d
-        let df = DateFormatter(); df.dateFormat = "M/d"
+    if secs <= 0 { return "现在" }
+    if secs >= 9 * 86400 {          // 远期（如月度重置）显示日期
+        let df = DateFormatter(); df.dateFormat = "M月d日"
         return df.string(from: date)
     }
-    let h = secs / 3600
+    let d = secs / 86400
+    let h = (secs % 86400) / 3600
     let m = (secs % 3600) / 60
-    if h >= 24 {
-        let df = DateFormatter()
-        df.dateFormat = "EEE HH'h'"
-        df.locale = Locale(identifier: "en_US")
-        return df.string(from: date).lowercased()
-    }
-    if h > 0 { return "\(h)h\(String(format: "%02d", m))m" }
-    return "\(m)m"
+    if d >= 1 { return h > 0 ? "\(d)天\(h)小时" : "\(d)天" }
+    if h > 0 { return m > 0 ? "\(h)小时\(m)分" : "\(h)小时" }
+    return "\(m)分钟"
 }

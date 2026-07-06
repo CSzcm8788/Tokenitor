@@ -46,6 +46,18 @@
 
 **直接下载（推荐）**：到 [Releases](https://github.com/CSzcm8788/Tokenitor/releases/latest) 下载 `Tokenitor.dmg`，打开后拖进「应用程序」，双击即可运行（已经 Apple 公证，无 Gatekeeper 拦截）。要求 **macOS 13 (Ventura) 或更高**。
 
+**一行命令安装**（下载最新公证 DMG → 装到「应用程序」→ 启动）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CSzcm8788/Tokenitor/main/get.sh | bash
+```
+
+**Homebrew**：
+
+```bash
+brew install --cask CSzcm8788/tap/tokenitor
+```
+
 **从源码构建**：需要 macOS 13+ 和 Xcode 命令行工具（`xcode-select --install` 即可，**不用打开 Xcode**）。
 
 ### 一键安装（推荐）
@@ -92,7 +104,8 @@ swift run -c release
 
 - **各 AI 服务开关**（Claude / Codex / Gemini / Copilot + 通知告警）——macOS 原生胶囊 Switch，带开/关状态。Claude、Copilot 走非官方端点，**默认关闭**、需手动开启。
 - 低用量阈值（默认剩余 **50%**）、紧急阈值（默认剩余 **20%**）、刷新间隔（默认 60s，最低 15s）——三个**等宽**下拉。
-- 测试通知 / 重新登录 Claude。
+- 偏好开关：开机自启 / 刘海面板 / **服务状态监控**（厂商状态页轮询）/ 调试转储。
+- 测试通知 / 重新登录 Claude / 授权 Copilot。
 
 <p align="center">
   <img src="docs/SCR-settings.png" width="360" alt="设置页">
@@ -248,6 +261,20 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 [MIT](LICENSE) © 2026 CSzcm8788。可自由使用 / 修改 / 分发（含商用），需保留版权声明；软件按「原样」提供，不含任何担保。
 
 ## 更新日志
+
+### 1.2.0
+
+服务状态监控 + 界面语言统一 + Homebrew 分发。
+
+- **服务状态监控**（新，可在设置关闭）：每 5 分钟轮询各厂商**公开**状态页（`status.claude.com` / `status.openai.com` / `githubstatus.com`，Statuspage v2 JSON、无鉴权），异常时对应卡片显示「服务降级 / 服务中断」胶囊、菜单栏图标叠加琥珀/红色指示点——回答"是我额度用完了，还是他们服务出事了"。
+- **套餐胶囊**：Copilot 套餐名（Individual / Business…）从说明小字升级为标题行胶囊；所有 AI 卡片**不再挂说明小字**，风格统一为「标题 + 胶囊」。
+- **倒计时全中文**：重置时间改为 `2小时30分` / `6天23小时` / `8月1日`（英文版随后续整体本地化提供）。
+- **相对更新时间全覆盖**：菜单栏弹层与刘海面板顶部显示「更新于 N分钟前」。
+- **图标语言统一**：侧边栏彩色圆角块改为 macOS 惯例的单色 SF Symbols（随系统强调色/选中态着色），与设置页、说明页图标风格一致。
+- **仪表精简**：移除大数字统计瓦片（与用量条信息重复、占用视野），hero 卡 = 标题胶囊行 + 用量条。
+- **修复**：内容滚动不再盖住标题栏（工具栏恢复材质遮挡）；移除无用的侧边栏折叠按钮（macOS 14+）。
+- **关于页**：作者社交图标（GitHub / Telegram / X，不展示裸链接）+ 版本更新简要列表。
+- **安装渠道**：一行命令安装 `curl -fsSL …/get.sh | bash`；Homebrew `brew install --cask CSzcm8788/tap/tokenitor`。
 
 ### 1.1.0
 

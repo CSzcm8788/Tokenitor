@@ -26,9 +26,8 @@ final class CopilotProvider: UsageProvider {
 
             self.request("https://api.github.com/copilot_internal/user", token: token) { sc, root in
                 guard sc == 200, let root = root else {
-                    // 已登录但拿不到用量（端点变动 / 限流）→ 软提示，不红错
-                    completion(ProviderSnapshot(name: self.displayName, windows: [], ok: true,
-                                                error: nil, note: "已登录（用量获取失败）"))
+                    // 已登录但拿不到用量（端点变动 / 限流）→ 灰色状态提示
+                    completion(.failed(self.displayName, "已登录（用量获取失败）"))
                     return
                 }
                 completion(self.parse(root))
@@ -39,8 +38,10 @@ final class CopilotProvider: UsageProvider {
     // MARK: - 解析
 
     private func parse(_ root: [String: Any]) -> ProviderSnapshot {
+        // 套餐名（如 "Individual" / "Business"）：hero 卡片显示为胶囊
         let plan = (root["copilot_plan"] as? String)?
             .replacingOccurrences(of: "_", with: " ")
+            .capitalized
         let reset = self.resetDate(root["quota_reset_date"])
         let snaps = root["quota_snapshots"] as? [String: Any]
 
@@ -49,41 +50,15 @@ final class CopilotProvider: UsageProvider {
             ?? (snaps?["chat"] as? [String: Any])
 
         var windows: [UsageWindow] = []
-        var note: String
-
-        if let snap = snap {
-            if (snap["unlimited"] as? Bool) == true {
-                // 不限量套餐：无进度条，仅提示
-                note = planNote(plan, extra: "高级用量不限量")
-            } else {
-                let pctRemain = JSON.double(snap["percent_remaining"])
-                    ?? (100 - (JSON.double(snap["percent_used"]) ?? 0))
-                let used = max(0, min(100, 100 - max(0, min(100, pctRemain))))
-                windows = [UsageWindow(usedPercent: used, resetsAt: reset, label: "premium")]
-
-                var extra = "高级用量"
-                if let ent = JSON.double(snap["entitlement"]), ent > 0 {
-                    let rem = JSON.double(snap["remaining"]) ?? JSON.double(snap["quota_remaining"])
-                    if let rem = rem {
-                        extra = String(format: "高级用量 剩 %.0f/%.0f", max(0, rem), ent)
-                    } else {
-                        extra = String(format: "高级用量 额度 %.0f/月", ent)
-                    }
-                }
-                note = planNote(plan, extra: extra)
-            }
-        } else {
-            note = planNote(plan, extra: "每月 1 号重置")
+        if let snap = snap, (snap["unlimited"] as? Bool) != true {
+            let pctRemain = JSON.double(snap["percent_remaining"])
+                ?? (100 - (JSON.double(snap["percent_used"]) ?? 0))
+            let used = max(0, min(100, 100 - max(0, min(100, pctRemain))))
+            windows = [UsageWindow(usedPercent: used, resetsAt: reset, label: "premium")]
         }
+        // 不限量套餐：无窗口，仅展示套餐胶囊（卡片不再挂说明小字）
 
-        return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil, note: note)
-    }
-
-    private func planNote(_ plan: String?, extra: String) -> String {
-        if let plan = plan, !plan.isEmpty {
-            return "\(plan.capitalized) · \(extra)"
-        }
-        return extra
+        return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil, plan: plan)
     }
 
     /// "2026-08-01" → 该日 00:00 UTC。

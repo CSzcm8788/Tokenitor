@@ -43,9 +43,32 @@ final class StatusBarController: NSObject {
         log("status item ready (popover mode)")
     }
 
-    /// 弹层内容是 SwiftUI、自动跟随 store；菜单栏只保留图标，不显文字。
+    /// 弹层内容是 SwiftUI、自动跟随 store；菜单栏只保留图标（+ 服务异常时的指示点）。
     func render(_ snaps: [ProviderSnapshot]) {
-        statusItem.button?.attributedTitle = NSAttributedString(string: "")
+        statusItem.button?.attributedTitle = serviceDot
+    }
+
+    // MARK: - 厂商服务状态指示点（图标右侧小圆点：琥珀=降级，红=中断）
+
+    private var serviceDot = NSAttributedString(string: "")
+
+    func setServiceIndicator(_ indicator: String?) {
+        let color: NSColor?
+        switch indicator {
+        case "critical", "major": color = .systemRed
+        case "minor":             color = .systemOrange
+        default:                  color = nil
+        }
+        if let color {
+            serviceDot = NSAttributedString(string: "●", attributes: [
+                .foregroundColor: color,
+                .font: NSFont.systemFont(ofSize: 7),
+                .baselineOffset: 5
+            ])
+        } else {
+            serviceDot = NSAttributedString(string: "")
+        }
+        statusItem.button?.attributedTitle = serviceDot
     }
 
     // MARK: - 点击：左键弹层 / 右键上下文菜单

@@ -8,20 +8,22 @@ final class ModelsTests: XCTestCase {
     func testCountdownPastAndNil() {
         let now = Date()
         XCTAssertEqual(formatCountdown(to: nil, now: now), "")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(-10), now: now), "now")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(-10), now: now), "现在")
     }
 
-    func testCountdownMinutesAndHours() {
+    func testCountdownMinutesHoursDays() {
         let now = Date()
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(5 * 60), now: now), "5m")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600 + 30 * 60), now: now), "2h30m")
-        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(3600 + 5 * 60), now: now), "1h05m")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(5 * 60), now: now), "5分钟")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600 + 30 * 60), now: now), "2小时30分")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(2 * 3600), now: now), "2小时")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(3 * 86400), now: now), "3天")
+        XCTAssertEqual(formatCountdown(to: now.addingTimeInterval(6 * 86400 + 23 * 3600), now: now), "6天23小时")
     }
 
     func testCountdownFarFutureShowsDate() {
         let now = Date()
         let out = formatCountdown(to: now.addingTimeInterval(10 * 86400), now: now)
-        XCTAssertTrue(out.contains("/"), "≥9 天应显示 M/d 日期，实际: \(out)")
+        XCTAssertTrue(out.contains("月") && out.contains("日"), "≥9 天应显示 M月d日，实际: \(out)")
     }
 
     // MARK: - formatUpdatedAgo（卡片标题下的「更新于」相对时间）
@@ -31,7 +33,7 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-5), now: now), "刚刚")
         XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-90), now: now), "1分钟前")
         XCTAssertEqual(formatUpdatedAgo(now.addingTimeInterval(-2 * 3600), now: now), "2小时前")
-        XCTAssertTrue(formatUpdatedAgo(now.addingTimeInterval(-3 * 86400), now: now).contains("/"),
+        XCTAssertTrue(formatUpdatedAgo(now.addingTimeInterval(-3 * 86400), now: now).contains("月"),
                       "超过一天应显示日期")
     }
 
@@ -47,6 +49,16 @@ final class ModelsTests: XCTestCase {
     func testRemainingPercentClamps() {
         XCTAssertEqual(UsageWindow(usedPercent: 130, resetsAt: nil, label: "5h").remainingPercent, 0)
         XCTAssertEqual(UsageWindow(usedPercent: -5, resetsAt: nil, label: "5h").remainingPercent, 100)
+    }
+
+    // MARK: - 服务状态：取最严重指示级别
+
+    func testStatusMonitorWorst() {
+        XCTAssertNil(StatusMonitor.worst(of: [:]))
+        XCTAssertNil(StatusMonitor.worst(of: ["Claude": "none", "Codex": "none"]))
+        XCTAssertEqual(StatusMonitor.worst(of: ["Claude": "none", "Codex": "minor"]), "minor")
+        XCTAssertEqual(StatusMonitor.worst(of: ["Claude": "critical", "Codex": "minor"]), "critical")
+        XCTAssertEqual(StatusMonitor.worst(of: ["Copilot": "major", "Codex": "minor"]), "major")
     }
 
     // MARK: - 快照默认值（isStale 新字段不改变既有构造行为）

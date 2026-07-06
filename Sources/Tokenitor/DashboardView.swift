@@ -8,27 +8,46 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: sidebarSelection) {
-                // 分组式导航（概览 / 通用 / 其他），信息架构一眼可扫
-                Section("概览") {
-                    sidebarItem("仪表", "speedometer", .teal, .usage)
-                    sidebarItem("Token", "chart.line.uptrend.xyaxis", .green, .tokens)
-                }
-                Section("通用") {
-                    sidebarItem("语言", "globe", .blue, .language)
-                    sidebarItem("外观", "circle.lefthalf.filled", .orange, .appearance)
-                    sidebarItem("设置", "gearshape", .gray, .settings)
-                }
-                Section("其他") {
-                    sidebarItem("关于", "info.circle", .indigo, .about)
-                    sidebarItem("说明", "questionmark.circle", .pink, .help)
-                }
-            }
+            sidebarList
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 230)
             .navigationTitle("Tokenitor")
         } detail: {
             detail
+                // 工具栏（标题栏）始终有材质：内容滚动到它下面时被正常遮挡，
+                // 不再出现卡片盖住标题/按钮的错乱（此前透明标题栏 + 玻璃窗口无遮挡）。
+                .toolbarBackground(.visible, for: .windowToolbar)
                 .background(VisualEffectView(material: .popover, blending: .behindWindow).ignoresSafeArea())
+        }
+    }
+
+    /// 边栏列表；固定两栏布局不需要「折叠边栏」按钮，macOS 14+ 直接移除。
+    @ViewBuilder
+    private var sidebarList: some View {
+        if #available(macOS 14.0, *) {
+            sidebarContent.toolbar(removing: .sidebarToggle)
+        } else {
+            sidebarContent
+        }
+    }
+
+    private var sidebarContent: some View {
+        List(selection: sidebarSelection) {
+                // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
+                // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色），
+                // 不再用彩色圆角块，全 app 图标语言统一为线性单色。
+                Section("概览") {
+                    sidebarItem("仪表", "gauge.medium", .usage)
+                    sidebarItem("Token", "chart.bar.xaxis", .tokens)
+                }
+                Section("通用") {
+                    sidebarItem("语言", "globe", .language)
+                    sidebarItem("外观", "circle.lefthalf.filled", .appearance)
+                    sidebarItem("设置", "gearshape", .settings)
+                }
+                Section("其他") {
+                    sidebarItem("关于", "info.circle", .about)
+                    sidebarItem("说明", "questionmark.circle", .help)
+                }
         }
     }
 
@@ -49,18 +68,10 @@ struct DashboardView: View {
             set: { store.page = $0 ?? .usage })
     }
 
-    /// 系统设置风格的边栏行：彩色圆角图标块 + 名称。
-    private func sidebarItem(_ title: String, _ icon: String, _ color: Color, _ page: AppPage) -> some View {
-        Label {
-            Text(title)
-        } icon: {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 20, height: 20)
-                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(color))
-        }
-        .tag(page)
+    /// 边栏行：单色 SF Symbol + 名称（着色交给系统：强调色 / 选中态自动适配）。
+    private func sidebarItem(_ title: String, _ icon: String, _ page: AppPage) -> some View {
+        Label(title, systemImage: icon)
+            .tag(page)
     }
 
     @ViewBuilder
@@ -96,7 +107,8 @@ struct DashboardView: View {
                                        warnAt: Settings.shared.warnAt,
                                        critAt: Settings.shared.critAt,
                                        updatedAt: store.lastUpdate,
-                                       hero: true)   // 主窗口用 hero 卡：胶囊行 + 统计瓦片 + 用量条
+                                       hero: true,   // 主窗口用 hero 卡：胶囊行 + 统计瓦片 + 用量条
+                                       serviceIndicator: store.serviceStatus[snap.name])
                     }
                 }
                 HStack {
@@ -131,17 +143,42 @@ struct DashboardView: View {
 
 }
 
-/// 「关于」详情：GitHub / 数据文件夹 / 使用说明，版本在最下方。
+/// 「关于」详情：作者社交图标（不展示裸链接）/ 数据文件夹 / 版本更新简要 / 版本号。
 struct AboutDetail: View {
     @ObservedObject var store: UsageStore
+
+    /// 版本更新简要（一版一行；完整日志见 GitHub README）。
+    private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.2.0", "服务状态监控 · 套餐胶囊 · 中文倒计时 · Homebrew 分发"),
+        ("1.1.0", "仪表重设计：分组侧边栏 + hero 卡片"),
+        ("1.0.1", "安全与稳定性修复（凭证只读、刷新看门狗等）"),
+        ("1.0.0", "首个正式版"),
+    ]
 
     var body: some View {
         Form {
             Section {
-                Link(destination: URL(string: "https://github.com/CSzcm8788/Tokenitor")!) {
-                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                HStack(spacing: 14) {
+                    socialButton(icon: "chevron.left.forwardslash.chevron.right",
+                                 help: "GitHub · 项目主页",
+                                 url: "https://github.com/CSzcm8788/Tokenitor")
+                    socialButton(icon: "paperplane.fill",
+                                 help: "Telegram · 联系作者",
+                                 url: "https://t.me/yukabiubiu")
+                    socialButton(text: "𝕏",
+                                 help: "X · 作者主页",
+                                 url: "https://x.com/yukabiubiu")
+                    Spacer()
+                    Button { openDataFolder() } label: { Label("数据文件夹", systemImage: "folder") }
+                        .buttonStyle(.bordered)
                 }
-                Button { openDataFolder() } label: { Label("数据文件夹", systemImage: "folder") }
+            }
+            Section("更新简要") {
+                ForEach(Self.releaseNotes, id: \.version) { item in
+                    LabeledContent(item.version) {
+                        Text(item.note).foregroundStyle(.secondary)
+                    }
+                }
             }
             Section {
                 LabeledContent("版本", value: "Tokenitor v\(appVersion)")
@@ -149,6 +186,27 @@ struct AboutDetail: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    /// 圆形社交图标按钮：SF Symbol 或文字符号（不内置第三方品牌图片，与全 app 政策一致）。
+    private func socialButton(icon: String? = nil, text: String? = nil,
+                              help: String, url: String) -> some View {
+        Button {
+            if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        } label: {
+            Group {
+                if let icon {
+                    Image(systemName: icon).font(.system(size: 14, weight: .medium))
+                } else {
+                    Text(text ?? "").font(.system(size: 15, weight: .semibold))
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(Circle().fill(Color.primary.opacity(0.07)))
+            .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private var appVersion: String {
@@ -216,10 +274,15 @@ struct PopoverGlanceView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text("Tokenitor").font(.headline)
+                if let t = store.lastUpdate {
+                    Text("更新于 \(formatUpdatedAgo(t))")   // 面板级统一显示，卡片下不再挂小字
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                glanceButton("chart.line.uptrend.xyaxis", "Token 用量") { store.onOpenWindow(.tokens) }
+                glanceButton("chart.bar.xaxis", "Token 用量") { store.onOpenWindow(.tokens) }
                 glanceButton("gearshape", "设置") { store.onOpenWindow(.settings) }
                 glanceButton("arrow.clockwise", "刷新") { store.onRefresh() }
             }
@@ -227,8 +290,7 @@ struct PopoverGlanceView: View {
                 Text("正在获取用量…").font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
-                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt,
-                                   updatedAt: store.lastUpdate)   // 「更新于」显示在卡片标题下
+                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt)
                 }
             }
         }

@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = UsageStore()
     private lazy var notch = NotchController(store: store)
     private let alertEngine = AlertEngine()
+    private let statusMonitor = StatusMonitor()
     private var timer: Timer?
     private var tokenTick: Timer?                 // 轻量历史 tick（低频，只落盘/预热，防趋势缺口）
     private var pageObserver: AnyCancellable?     // 进入 Token 页时立即刷新一次
@@ -126,6 +127,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Notifier.shared.requestAuthorization()
         restartTimer()
         refresh()
+
+        // 厂商服务状态监控：结果进 store（卡片胶囊）+ 菜单栏指示点
+        statusMonitor.onChange = { [weak self] indicators in
+            guard let self else { return }
+            self.store.serviceStatus = indicators
+            self.statusController.setServiceIndicator(StatusMonitor.worst(of: indicators))
+        }
+        if Settings.shared.statusMonitorEnabled { statusMonitor.start() }
 
         // Token 聚合按需化：启动先落盘一次历史 + 预热；之后仅在查看 Token 页时随主刷新更新 UI（见 refresh），
         // 另有低频 tick 始终落盘历史（见 startTokenTick），避免"没打开 Token 页的日子"趋势缺点。
@@ -265,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         restartTimer()
         notch.setEnabled(Settings.shared.notchEnabled)   // 刘海面板开关即时生效
+        Settings.shared.statusMonitorEnabled ? statusMonitor.start() : statusMonitor.stop()
         refresh()
     }
 
