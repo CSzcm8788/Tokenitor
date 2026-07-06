@@ -7,7 +7,8 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-14
+    # 需要 macOS 26 SDK（GlassBackground 用了 Liquid Glass 的 glassEffect API）
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Swift version
