@@ -9,13 +9,20 @@ struct DashboardView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: sidebarSelection) {
-                sidebarItem("仪表", "speedometer", .teal, .usage)
-                sidebarItem("Token", "chart.line.uptrend.xyaxis", .green, .tokens)
-                sidebarItem("语言", "globe", .blue, .language)
-                sidebarItem("外观", "circle.lefthalf.filled", .orange, .appearance)
-                sidebarItem("设置", "gearshape", .gray, .settings)
-                sidebarItem("关于", "info.circle", .indigo, .about)
-                sidebarItem("说明", "questionmark.circle", .pink, .help)
+                // 分组式导航（概览 / 通用 / 其他），信息架构一眼可扫
+                Section("概览") {
+                    sidebarItem("仪表", "speedometer", .teal, .usage)
+                    sidebarItem("Token", "chart.line.uptrend.xyaxis", .green, .tokens)
+                }
+                Section("通用") {
+                    sidebarItem("语言", "globe", .blue, .language)
+                    sidebarItem("外观", "circle.lefthalf.filled", .orange, .appearance)
+                    sidebarItem("设置", "gearshape", .gray, .settings)
+                }
+                Section("其他") {
+                    sidebarItem("关于", "info.circle", .indigo, .about)
+                    sidebarItem("说明", "questionmark.circle", .pink, .help)
+                }
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 230)
             .navigationTitle("Tokenitor")
@@ -88,7 +95,8 @@ struct DashboardView: View {
                         AIMonitorPanel(snap: snap,
                                        warnAt: Settings.shared.warnAt,
                                        critAt: Settings.shared.critAt,
-                                       updatedAt: store.lastUpdate)   // 「更新于」显示在卡片标题下
+                                       updatedAt: store.lastUpdate,
+                                       hero: true)   // 主窗口用 hero 卡：胶囊行 + 统计瓦片 + 用量条
                     }
                 }
                 HStack {

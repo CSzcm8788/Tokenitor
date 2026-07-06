@@ -27,6 +27,14 @@ enum AIKind: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 数据源性质（仪表 hero 卡片上的胶囊标签）："本地" 纯本地文件 / "未公开" 非官方端点。
+    var sourceTag: String {
+        switch self {
+        case .claude, .copilot: return "未公开"
+        case .codex, .gemini:   return "本地"
+        }
+    }
+
     /// 用快照 / displayName 反查模块。
     static func from(name: String) -> AIKind? { AIKind(rawValue: name) }
 }
