@@ -68,25 +68,34 @@ final class CopilotAuth {
                 return
             }
             onCode(dc.userCode, dc.verificationURI)
-
             let deadline = Date().addingTimeInterval(Double(dc.expiresIn))
-            var interval = max(dc.interval, 5)
-            while Date() < deadline {
-                Thread.sleep(forTimeInterval: Double(interval))
-                let (token, err) = self.pollToken(deviceCode: dc.deviceCode)
-                if let token {
-                    self.keychainSave(token)
-                    completion(true, nil)
-                    return
-                }
-                if let err {
-                    if err == "authorization_pending" { continue }
-                    if err == "slow_down" { interval += 5; continue }
-                    completion(false, self.friendly(err)); return
-                }
-                // token 与 err 都空：暂态，继续轮询
+            self.pollLoop(deviceCode: dc.deviceCode, interval: max(dc.interval, 5),
+                          deadline: deadline, completion: completion)
+        }
+    }
+
+    /// 轮询一轮；pending 时用 asyncAfter 续约 —— 不用 Thread.sleep 占住 GCD 线程
+    /// （device flow 最长可轮 15 分钟，占死一个工作线程会加剧线程池饥饿）。
+    private func pollLoop(deviceCode: String, interval: Int, deadline: Date,
+                          completion: @escaping (_ ok: Bool, _ message: String?) -> Void) {
+        guard Date() < deadline else { completion(false, "授权超时，请重试"); return }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(interval)) {
+            let (token, err) = self.pollToken(deviceCode: deviceCode)
+            if let token {
+                self.keychainSave(token)
+                completion(true, nil)
+                return
             }
-            completion(false, "授权超时，请重试")
+            switch err {
+            case "authorization_pending", nil:   // 暂态/等待授权 → 继续轮询
+                self.pollLoop(deviceCode: deviceCode, interval: interval,
+                              deadline: deadline, completion: completion)
+            case "slow_down":
+                self.pollLoop(deviceCode: deviceCode, interval: interval + 5,
+                              deadline: deadline, completion: completion)
+            case let e?:
+                completion(false, self.friendly(e))
+            }
         }
     }
 
@@ -127,7 +136,7 @@ final class CopilotAuth {
         req.timeoutInterval = 15
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
-        req.setValue("Tokenitor/1.0.0", forHTTPHeaderField: "User-Agent")   // GitHub 要求带 UA；诚实标识
+        req.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")   // GitHub 要求带 UA；诚实标识
         req.httpBody = body.data(using: .utf8)
 
         var out: [String: Any]? = nil

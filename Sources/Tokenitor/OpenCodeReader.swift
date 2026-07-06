@@ -11,9 +11,19 @@ enum OpenCodeReader {
         let db = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local/share/opencode/opencode.db").path
         guard FileManager.default.fileExists(atPath: db) else { return nil }
-        guard let rows = queryJSON(db: db, sql: "SELECT data FROM message") else { return nil }
 
         let startMs = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970 * 1000
+        // 在 SQL 层就过滤到「今日的 assistant 消息」：重度用户的 message 表可达数十万行，
+        // 全表拉进内存再过滤是主要的性能热点。json_extract 不可用（老库）时退回全表扫描，
+        // 下面的 Swift 侧过滤仍在，结果一致。
+        let filtered = """
+            SELECT data FROM message \
+            WHERE json_extract(data,'$.role') = 'assistant' \
+              AND (json_extract(data,'$.time.created') IS NULL \
+                   OR json_extract(data,'$.time.created') >= \(Int64(startMs)))
+            """
+        guard let rows = queryJSON(db: db, sql: filtered)
+                      ?? queryJSON(db: db, sql: "SELECT data FROM message") else { return nil }
         var byModel: [String: TokenCounts] = [:]
         var costByModel: [String: Double] = [:]
         var requests = 0

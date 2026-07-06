@@ -24,14 +24,15 @@ final class CopilotProvider: UsageProvider {
                 completion(.absent(self.displayName)); return
             }
 
-            let (sc, root) = self.request("https://api.github.com/copilot_internal/user", token: token)
-            guard sc == 200, let root = root else {
-                // 已登录但拿不到用量（端点变动 / 限流）→ 软提示，不红错
-                completion(ProviderSnapshot(name: self.displayName, windows: [], ok: true,
-                                            error: nil, note: "已登录（用量获取失败）"))
-                return
+            self.request("https://api.github.com/copilot_internal/user", token: token) { sc, root in
+                guard sc == 200, let root = root else {
+                    // 已登录但拿不到用量（端点变动 / 限流）→ 软提示，不红错
+                    completion(ProviderSnapshot(name: self.displayName, windows: [], ok: true,
+                                                error: nil, note: "已登录（用量获取失败）"))
+                    return
+                }
+                completion(self.parse(root))
             }
-            completion(self.parse(root))
         }
     }
 
@@ -97,8 +98,10 @@ final class CopilotProvider: UsageProvider {
 
     // MARK: - HTTP
 
-    private func request(_ url: String, token: String) -> (Int, [String: Any]?) {
-        guard let u = URL(string: url) else { return (-1, nil) }
+    /// 原生异步回调（不再用信号量把 URLSession 强行同步化、阻塞 GCD 工作线程）。
+    private func request(_ url: String, token: String,
+                         completion: @escaping (Int, [String: Any]?) -> Void) {
+        guard let u = URL(string: url) else { completion(-1, nil); return }
         var req = URLRequest(url: u)
         req.httpMethod = "GET"
         req.timeoutInterval = 12
@@ -107,21 +110,17 @@ final class CopilotProvider: UsageProvider {
         req.setValue("token \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue("2025-04-01", forHTTPHeaderField: "X-Github-Api-Version")
-        req.setValue("Tokenitor/1.0.0", forHTTPHeaderField: "Editor-Version")
-        req.setValue("Tokenitor/1.0.0", forHTTPHeaderField: "User-Agent")
+        req.setValue(AppInfo.userAgent, forHTTPHeaderField: "Editor-Version")
+        req.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
 
-        var status = -1
-        var json: [String: Any]? = nil
-        let sem = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: req) { data, resp, _ in
-            status = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            var json: [String: Any]? = nil
             if let data = data {
                 DebugLog.dump("copilot", data)
                 json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             }
-            sem.signal()
+            completion(status, json)
         }.resume()
-        _ = sem.wait(timeout: .now() + 14)
-        return (status, json)
     }
 }

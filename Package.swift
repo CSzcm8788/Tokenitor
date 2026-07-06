@@ -10,6 +10,11 @@ let package = Package(
         .executableTarget(
             name: "Tokenitor",
             path: "Sources/Tokenitor"
+        ),
+        .testTarget(
+            name: "TokenitorTests",
+            dependencies: ["Tokenitor"],
+            path: "Tests/TokenitorTests"
         )
     ]
 )

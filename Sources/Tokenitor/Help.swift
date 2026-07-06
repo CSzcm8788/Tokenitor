@@ -30,7 +30,7 @@ struct HelpView: View {
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
                                 [("未公开", .warn), ("默认关", .mut)],
-                                "5h / 周（含 Sonnet）· 凭证读 `~/.claude/.credentials.json` 或钥匙串 · 诚实 UA · 限流走缓存。")
+                                "5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存。")
                     rowDivider
                     providerRow("Copilot", "api.github.com/copilot_internal/user",
                                 [("内部", .warn), ("默认关", .mut)],
@@ -41,7 +41,7 @@ struct HelpView: View {
                 // ② Token 页（本地成本），与配额独立。原 Token 页折叠「说明」并入此处。
                 card("chart.bar", "数据来源 · Token 页（本地成本，与配额独立）") {
                     bullet("**来源**：`~/.claude/projects`、`~/.codex/sessions`、`opencode.db`；取每条消息的 token 数与模型名。")
-                    bullet("**成本**：定价表估「等值花费」（非账单）；无定价显「—」、不计入。")
+                    bullet("**成本**：定价表（截至 \(Pricing.asOf)）估「等值花费」（非账单）；无定价显「—」、不计入。")
                     bullet("**Claude**：仅 Claude Code 终端写本地；Mac App / 网页不写，故此页无 Claude。")
                 }
 
@@ -55,7 +55,8 @@ struct HelpView: View {
                 // ④ 凭证存储与隐私。
                 card("lock.shield", "凭证与隐私") {
                     bullet("凭证仅直连各服务官方域名；无自有服务器，零上传。")
-                    bullet("续期凭证 / 授权 token 存 macOS 钥匙串（加密）。")
+                    bullet("授权 token 存 macOS 钥匙串（加密）；Claude Code 的凭证**只读**——绝不代它续期或改写，不影响它的登录态。")
+                    bullet("首次读取时的「允许访问钥匙串」弹窗请求方是 Tokenitor 本体；建议点「允许」（每次询问）。")
                     bullet("调试转储写 `~/.tokenitor/debug/`，已脱敏，超 3 天自动清。")
                     bullet("不读对话内容，仅取用量数字与模型名。")
                 }

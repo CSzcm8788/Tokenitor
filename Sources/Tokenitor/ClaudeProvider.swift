@@ -14,12 +14,10 @@ final class ClaudeProvider: UsageProvider {
     private let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
     private let auth = ClaudeAuth()
 
-    // 诚实标识自己，不再伪装成官方 claude-code 客户端（合规取舍）。
-    // 该端点会按 User-Agent 分桶限流：诚实 UA 更易被限流（429），此时走磁盘缓存兜底、优雅降级，
-    // 不再靠伪装官方客户端去绕过其反滥用限流。默认关闭、需用户在设置里确认风险后开启。
-    private static let userAgent = "Tokenitor/1.0.0"
-
-    // 缓存上次成功的数据（内存 + 磁盘），限流/暂态/启动时继续展示，避免面板变灰
+    // 缓存上次成功的数据（内存 + 磁盘），限流/暂态/启动时继续展示，避免面板变灰。
+    // 这些状态会被主线程（fetch 入口）与 URLSession 回调线程先后访问，
+    // 统一在 stateQueue 串行队列上读写，杜绝数据竞争。
+    private let stateQueue = DispatchQueue(label: "tokenitor.claude.state")
     private var lastWindows: [UsageWindow] = []
     private var lastOK: Date?
     private var cooldownUntil: Date?   // 429 退避：此时间前不再打网络
@@ -30,6 +28,11 @@ final class ClaudeProvider: UsageProvider {
     }
 
     func fetch(completion: @escaping (ProviderSnapshot) -> Void) {
+        stateQueue.async { self.fetchOnQueue(completion: completion) }
+    }
+
+    /// fetch 主体，只在 stateQueue 上运行。
+    private func fetchOnQueue(completion: @escaping (ProviderSnapshot) -> Void) {
         ensureCacheLoaded()   // 启动后第一次从磁盘载入上次数据
         // 限流冷却中且有缓存 → 直接给缓存，跳过网络，避免继续撞 429
         if let cd = cooldownUntil, Date() < cd, !lastWindows.isEmpty {
@@ -37,14 +40,18 @@ final class ClaudeProvider: UsageProvider {
             return
         }
         auth.accessToken { token, err in
-            guard let token = token else {
-                // 没有订阅凭证 = 未在使用 Claude 订阅 → 隐藏（有缓存则显示上次）
-                if self.lastWindows.isEmpty { completion(.absent(self.displayName)) }
-                else { completion(self.staleSnapshot(reason: "凭证读取失败")) }
-                return
-            }
-            self.callUsage(token: token) { status in
-                self.handle(status, refreshed: false, completion: completion)
+            self.stateQueue.async {
+                guard let token = token else {
+                    // 没有订阅凭证 = 未在使用 Claude 订阅 → 隐藏（有缓存则显示上次）
+                    if self.lastWindows.isEmpty { completion(.absent(self.displayName)) }
+                    else { completion(self.staleSnapshot(reason: err ?? "凭证读取失败")) }
+                    return
+                }
+                self.callUsage(token: token) { status in
+                    self.stateQueue.async {
+                        self.handle(status, refreshed: false, completion: completion)
+                    }
+                }
             }
         }
     }
@@ -63,13 +70,17 @@ final class ClaudeProvider: UsageProvider {
             if refreshed {
                 completion(failOrCached("订阅 token 已失效，请重新用订阅账号 /login"))
             } else {
-                // token 过期，强制续期一次再试
-                auth.accessToken(forceRefresh: true) { token2, _ in
-                    guard let token2 = token2 else {
-                        completion(self.failOrCached("订阅 token 已过期且续期失败，请重新用订阅账号 /login（详见 README）"))
-                        return
+                // token 过期，强制续期一次再试（回调统一跳回 stateQueue 再碰共享状态）
+                auth.accessToken(forceRefresh: true) { token2, err2 in
+                    self.stateQueue.async {
+                        guard let token2 = token2 else {
+                            completion(self.failOrCached(err2 ?? "订阅 token 已过期且续期失败，请重新用订阅账号 /login（详见 README）"))
+                            return
+                        }
+                        self.callUsage(token: token2) { status in
+                            self.stateQueue.async { self.handle(status, refreshed: true, completion: completion) }
+                        }
                     }
-                    self.callUsage(token: token2) { self.handle($0, refreshed: true, completion: completion) }
                 }
             }
         case .rateLimited(let retryAfter):
@@ -81,18 +92,20 @@ final class ClaudeProvider: UsageProvider {
         }
     }
 
-    /// 有缓存就显示缓存数据（附带提示），否则报错。
+    /// 有缓存就显示缓存数据（附带提示、标记 stale 供告警引擎跳过），否则报错。
     private func failOrCached(_ msg: String) -> ProviderSnapshot {
         if !lastWindows.isEmpty {
             return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
-                                    error: nil, note: "（\(msg)）显示上次数据 \(timeStr())")
+                                    error: nil, note: "（\(msg)）显示上次数据 \(timeStr())",
+                                    isStale: true)
         }
         return .failed(displayName, msg)
     }
 
     private func staleSnapshot(reason: String) -> ProviderSnapshot {
         ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
-                         error: nil, note: "\(reason)，显示上次数据 \(timeStr())")
+                         error: nil, note: "\(reason)，显示上次数据 \(timeStr())",
+                         isStale: true)
     }
 
     private func timeStr() -> String {
@@ -148,7 +161,9 @@ final class ClaudeProvider: UsageProvider {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
-        req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")   // 诚实 UA，不伪装官方客户端
+        // 诚实标识自己，不伪装官方 claude-code 客户端（合规取舍）。
+        // 该端点会按 User-Agent 分桶限流：诚实 UA 更易被限流（429），此时走磁盘缓存兜底、优雅降级。
+        req.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")
 
         URLSession.shared.dataTask(with: req) { data, resp, err in
             if let err = err {

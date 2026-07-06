@@ -9,6 +9,21 @@ echo "  Tokenitor · 重新登录 Claude 订阅"
 echo "=================================================="
 echo
 
+# 上次运行中断的遗留：settings.json 还处于移走状态 → 先恢复，避免配置一直失效
+if [ -f "$S.off" ] && [ ! -f "$S" ]; then
+  mv "$S.off" "$S"
+  echo "· 检测到上次中断的遗留，已先恢复 ~/.claude/settings.json"
+fi
+
+# 无论脚本怎么退出（正常结束 / Ctrl-C / 直接关掉 Terminal 窗口），都把 settings.json 还原
+restore_settings() {
+  if [ -f "$S.off" ]; then
+    mv "$S.off" "$S"
+    echo "· 已恢复 ~/.claude/settings.json（日常配置还原）"
+  fi
+}
+trap restore_settings EXIT INT TERM HUP
+
 # 临时移走会覆盖 OAuth 的 settings.json（含第三方 API key 的 env）
 if [ -f "$S" ]; then
   cp "$S" "$S.bak" 2>/dev/null || true
@@ -22,11 +37,8 @@ env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_API_KEY \
     -u ANTHROPIC_MODEL -u ANTHROPIC_DEFAULT_OPUS_MODEL \
     -u ANTHROPIC_DEFAULT_SONNET_MODEL -u ANTHROPIC_DEFAULT_HAIKU_MODEL claude || true
 
-# 恢复日常配置
-if [ -f "$S.off" ]; then
-  mv "$S.off" "$S"
-  echo "· 已恢复 ~/.claude/settings.json（日常配置还原）"
-fi
+# 恢复日常配置（trap 兜底同款逻辑；这里先行执行让提示按顺序出现）
+restore_settings
 
 # 清掉 Tokenitor 失效的本地凭证缓存，强制下次读取这次登录的新 token
 rm -f "$HOME/.tokenitor/claude-creds.json"

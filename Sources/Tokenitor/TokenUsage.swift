@@ -72,6 +72,9 @@ struct TokenStat: Identifiable, Equatable {
 struct ModelPrice { let input, output, cacheRead, cacheWrite: Double }
 
 enum Pricing {
+    /// 定价表数据截至日期（更新价格时同步改这里；说明页展示给用户）。
+    static let asOf = "2026-07"
+
     /// 关键字 → 价格（按子串匹配，越具体放越前）。
     private static let table: [(key: String, price: ModelPrice)] = [
         ("opus",          ModelPrice(input: 15,   output: 75, cacheRead: 1.50,  cacheWrite: 18.75)),

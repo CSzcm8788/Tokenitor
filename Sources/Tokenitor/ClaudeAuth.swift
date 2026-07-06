@@ -4,13 +4,20 @@ import Security
 /// 管理 Claude 订阅 OAuth 凭证：读取、自动续期（refresh token）、持久化。
 /// 续期后的新凭证存进 **macOS 钥匙串**（加密、访问受控），不再明文落盘；旧版明文缓存
 /// ~/.tokenitor/claude-creds.json 会在首次读取时自动迁移进钥匙串并删除。
-/// 读取时另会并读 Claude Code 自己的凭证（文件/钥匙串）作为来源，但从不修改它们。
+///
+/// 凭证分两条线，续期策略不同：
+///  · **自己的线**（Tokenitor 钥匙串条目 / 旧版明文缓存）：可以用 refresh token 续期。
+///  · **Claude Code 的线**（~/.claude/.credentials.json 与其钥匙串条目）：**只读、绝不续期**。
+///    否则服务端轮换 refresh token 后，新 token 只在我们手里，Claude Code 存的那份随即失效，
+///    等于把用户的 Claude Code 登出——这是历史版本的真实事故来源。
 final class ClaudeAuth {
 
     struct Creds {
         var access: String
         var refresh: String?
         var expiresAt: Date?
+        /// true = Tokenitor 自己的 token 线（可续期）；false = 读取自 Claude Code（只读）。
+        var ownedByTokenitor = false
     }
 
     // Claude Code 公开 OAuth 客户端 ID（社区通用值）。
@@ -34,7 +41,21 @@ final class ClaudeAuth {
             .appendingPathComponent(".claude/.credentials.json")
     }()
 
-    /// 拿到一个可用的 access token（必要时自动续期）。
+    // 已确认失效（invalid_grant）的 refresh token：本次运行内不再重试，
+    // 避免"清缓存 → 下轮又读回同一个死 token → 再续期失败"的无退避循环打爆 token 端点。
+    private let deadLock = NSLock()
+    private var deadRefreshTokens = Set<String>()
+
+    private func isDead(_ rt: String) -> Bool {
+        deadLock.lock(); defer { deadLock.unlock() }
+        return deadRefreshTokens.contains(rt)
+    }
+    private func markDead(_ rt: String) {
+        deadLock.lock(); defer { deadLock.unlock() }
+        deadRefreshTokens.insert(rt)
+    }
+
+    /// 拿到一个可用的 access token（必要时自动续期——仅限自己的 token 线）。
     /// 回调：(token, errorMessage)。token 为 nil 时给出原因。
     func accessToken(forceRefresh: Bool = false, completion: @escaping (String?, String?) -> Void) {
         guard let creds = loadCreds() else {
@@ -46,18 +67,33 @@ final class ClaudeAuth {
             completion(creds.access, nil)
             return
         }
-        guard let rt = creds.refresh else {
-            // 没有 refresh token，只能先用现有 access（可能已过期）
-            completion(creds.access, nil)
+        // Claude Code 的凭证只读：过期也不代它续期（见类头注释），提示用户让 Claude Code 自己续。
+        guard creds.ownedByTokenitor else {
+            if forceRefresh {
+                completion(nil, "订阅 token 已过期。请在 Claude Code 里任意执行一次请求让它自动续期，再回来点刷新")
+            } else {
+                completion(creds.access, nil)  // 临近过期但可能仍可用，先试
+            }
+            return
+        }
+        guard let rt = creds.refresh, !isDead(rt) else {
+            // 没有 refresh token / token 已确认失效：只能先用现有 access（可能已过期）
+            if forceRefresh {
+                completion(nil, "订阅登录已失效，请重新用订阅账号 /login")
+            } else {
+                completion(creds.access, nil)
+            }
             return
         }
         refresh(using: rt) { newCreds, err in
-            if let nc = newCreds {
+            if var nc = newCreds {
+                nc.ownedByTokenitor = true
                 self.save(nc)
                 completion(nc.access, nil)
             } else {
-                // refresh token 失效：清掉本地缓存凭证，下次从钥匙串读取（重登后的新 token）
+                // refresh token 失效：记入黑名单不再重试，并清掉本地缓存凭证
                 if err == "invalid_grant" {
+                    self.markDead(rt)
                     self.purgeCache()
                     completion(nil, "订阅登录已失效，请重新用订阅账号 /login")
                 } else {
@@ -97,7 +133,7 @@ final class ClaudeAuth {
         req.httpMethod = "POST"
         req.timeoutInterval = 12
         req.setValue("application/json", forHTTPHeaderField: "Accept")
-        req.setValue("Tokenitor/1.0.0", forHTTPHeaderField: "User-Agent")   // 诚实 UA，不伪装官方 CLI
+        req.setValue(AppInfo.userAgent, forHTTPHeaderField: "User-Agent")   // 诚实 UA，不伪装官方 CLI
         if a.form {
             req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             var allowed = CharacterSet.alphanumerics; allowed.insert(charactersIn: "-._~")
@@ -136,32 +172,38 @@ final class ClaudeAuth {
                 expires = JSON.date(JSON.firstValue(in: root, keys: ["expires_at", "expiresAt"]))
             }
             log("Claude 续期成功（\(a.form ? "form" : "json")）")
-            completion(Creds(access: token, refresh: newRefresh, expiresAt: expires), nil)
+            completion(Creds(access: token, refresh: newRefresh, expiresAt: expires,
+                             ownedByTokenitor: true), nil)
         }.resume()
     }
 
-    // MARK: - 读取（缓存 → Claude 文件 → 钥匙串）
+    // MARK: - 读取（自己的钥匙串 → 旧版明文缓存 → Claude Code 文件/钥匙串）
 
     private func loadCreds() -> Creds? {
         // 汇集所有来源，挑过期时间最新的那份（自愈：重新登录后会自动采用更新的凭证）。
+        // 注意：Claude Code 的凭证只读取、不回写进自己的钥匙串——保持两条 token 线彼此独立。
         var candidates: [Creds] = []
-        // 1) 我们自己的钥匙串条目（首选）
-        if let data = keychainLoad(), let c = parse(data) { candidates.append(c) }
-        // 2) 旧版明文缓存：仅为迁移而读，读后落钥匙串并删除
-        var hadLegacy = false
-        if let data = try? Data(contentsOf: legacyCacheURL), let c = parse(data) { candidates.append(c); hadLegacy = true }
-        // 3) Claude Code 自己的凭证（文件 + 钥匙串），只读、不改
+        // 1) 我们自己的钥匙串条目（可续期）
+        if let data = keychainLoad(), var c = parse(data) {
+            c.ownedByTokenitor = true
+            candidates.append(c)
+        }
+        // 2) 旧版明文缓存（当年由 Tokenitor 续期后写下 → 属自己的线）：迁移进钥匙串后删除
+        if let data = try? Data(contentsOf: legacyCacheURL), var c = parse(data) {
+            c.ownedByTokenitor = true
+            save(c)
+            try? FileManager.default.removeItem(at: legacyCacheURL)
+            candidates.append(c)
+        }
+        // 3) Claude Code 自己的凭证（文件 + 钥匙串），只读、不改、不续期
         if let data = try? Data(contentsOf: claudeFileURL), let c = parse(data) { candidates.append(c) }
         for service in ["Claude Code-credentials", "Claude Code", "Claude"] {
             if let data = readKeychain(service: service), let c = parse(data) { candidates.append(c) }
         }
         guard !candidates.isEmpty else { return nil }
-        let best = candidates.max { a, b in
+        return candidates.max { a, b in
             (a.expiresAt ?? .distantPast) < (b.expiresAt ?? .distantPast)
-        }!
-        save(best) // 统一落进钥匙串
-        if hadLegacy { try? FileManager.default.removeItem(at: legacyCacheURL) }  // 迁移完成，删除明文缓存
-        return best
+        }
     }
 
     /// 解析凭证 JSON（兼容 {claudeAiOauth:{...}} 与扁平结构）。
@@ -220,20 +262,22 @@ final class ClaudeAuth {
         SecItemDelete(keychainBaseQuery() as CFDictionary)
     }
 
+    /// 读取其它应用（Claude Code）的钥匙串条目 —— 用 Security API 而非起 `/usr/bin/security` 子进程：
+    /// 授权弹窗的请求方是 Tokenitor 本体，用户点「始终允许」也只放行本应用的签名身份；
+    /// 走 `security` 命令行则会把系统二进制加进条目 ACL，此后任何进程都能借它静默读走凭证。
     private func readKeychain(service: String) -> Data? {
-        let task = Process()
-        task.launchPath = "/usr/bin/security"
-        task.arguments = ["find-generic-password", "-s", service, "-w"]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
-        do { try task.run() } catch { return nil }
-        let out = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard task.terminationStatus == 0, !out.isEmpty else { return nil }
+        let q: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+              let data = out as? Data, !data.isEmpty else { return nil }
         // 钥匙串里可能是 JSON，也可能是裸 token
-        let s = String(decoding: out, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("{") { return out }
+        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("{") { return data }
         return ("{\"accessToken\":\"" + s + "\"}").data(using: .utf8)
     }
 }

@@ -87,13 +87,11 @@ struct DashboardView: View {
                     ForEach(store.snapshots, id: \.name) { snap in
                         AIMonitorPanel(snap: snap,
                                        warnAt: Settings.shared.warnAt,
-                                       critAt: Settings.shared.critAt)
+                                       critAt: Settings.shared.critAt,
+                                       updatedAt: store.lastUpdate)   // 「更新于」显示在卡片标题下
                     }
                 }
                 HStack {
-                    if let t = store.lastUpdate {
-                        Text("更新于 \(timeString(t))").font(.uiCaption).foregroundStyle(.secondary)
-                    }
                     Spacer()
                     Button { store.onRefresh() } label: {
                         Image(systemName: "arrow.clockwise").font(.system(size: 13))
@@ -123,9 +121,6 @@ struct DashboardView: View {
         .navigationTitle("Token 用量")
     }
 
-    private func timeString(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; return f.string(from: d)
-    }
 }
 
 /// 「关于」详情：GitHub / 数据文件夹 / 使用说明，版本在最下方。
@@ -224,11 +219,9 @@ struct PopoverGlanceView: View {
                 Text("正在获取用量…").font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
-                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt)
+                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt,
+                                   updatedAt: store.lastUpdate)   // 「更新于」显示在卡片标题下
                 }
-            }
-            if let t = store.lastUpdate {
-                Text("更新于 \(timeString(t))").font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(16)
@@ -244,9 +237,5 @@ struct PopoverGlanceView: View {
         }
         .buttonStyle(.borderless)
         .help(help)
-    }
-
-    private func timeString(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; return f.string(from: d)
     }
 }

@@ -52,7 +52,10 @@ final class NotchController {
         let handler: (NSEvent) -> Void = { [weak self] _ in self?.evaluate() }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { handler($0) }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { ev in handler(ev); return ev }
-        let t = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in self?.evaluate() }
+        // 悬停判定主要靠上面的鼠标事件即时驱动；定时器只是兜底（事件偶发丢失时收起面板），
+        // 0.5s + tolerance 足够，常驻 10Hz 轮询对后台应用是持续的电量开销。
+        let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.evaluate() }
+        t.tolerance = 0.2
         RunLoop.main.add(t, forMode: .common)
         pollTimer = t
 
@@ -86,7 +89,13 @@ final class NotchController {
         return NSRect(x: f.midX - notchW / 2, y: f.maxY - menuBarH - 4, width: notchW, height: menuBarH + 4)
     }
 
+    private var lastEval = Date.distantPast
+
     private func evaluate() {
+        // 节流：全局 mouseMoved 在移动时是高频事件风暴，50ms 内只判定一次即可
+        let now = Date()
+        guard now.timeIntervalSince(lastEval) >= 0.05 else { return }
+        lastEval = now
         guard let screen = topScreen() else { return }
         let p = NSEvent.mouseLocation
         let inNotch = notchRect(on: screen).contains(p)

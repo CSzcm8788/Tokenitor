@@ -26,13 +26,14 @@ enum TokenAggregator {
         var sampled = false
 
         for f in files {
-            autoreleasepool {   // 每文件处理完及时归还临时对象，压低堆峰值/碎片（不改变结果）
-                guard let text = try? String(contentsOf: f, encoding: .utf8) else { return }
-                // 该会话的模型（取文件里出现的第一个 model 字段）
-                let model = firstString(inLines: text, key: "model") ?? "gpt-5-codex"
-                for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
-                    guard let obj = json(line) else { continue }
-                    if !lineIsToday(obj, start: start) { continue }
+            // 该会话的模型（取文件前 50 行里出现的第一个 model 字段，找到即停）
+            let model = firstString(inFile: f, key: "model", scanLines: 50) ?? "gpt-5-codex"
+            // 流式逐行解析（不整读文件）；时间戳每行只提取一次，今日过滤与小时分桶共用
+            JSONLScanner.forEachLine(of: f) { line, _ in
+                autoreleasepool {
+                    guard let obj = json(line) else { return }
+                    let ts = timestamp(of: obj)
+                    if let ts, ts < start { return }   // 无时间戳视为今天（文件已按近 2 天过滤）
 
                     var deltas: [[String: Any]] = []
                     collectDicts(obj, key: "last_token_usage", into: &deltas)
@@ -40,7 +41,7 @@ enum TokenAggregator {
                     for d in deltas {
                         if let c = counts(from: d) {
                             byModel[model, default: TokenCounts()] += c
-                            hourly[hourBucket(obj)] += c
+                            hourly[hourBucket(ts)] += c
                             lineHadUsage = true
                             if Settings.shared.debugDump && !sampled { DebugLog.dumpJSON("token-codex-sample", d); sampled = true }
                         }
@@ -65,22 +66,25 @@ enum TokenAggregator {
         var sampled = false
 
         for f in files {
-            autoreleasepool {   // 每文件处理完及时归还临时对象，压低堆峰值/碎片（不改变结果）
-                guard let text = try? String(contentsOf: f, encoding: .utf8) else { return }
-                for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
-                    guard let obj = json(line) else { continue }
-                    if !lineIsToday(obj, start: start) { continue }
+            // 流式逐行解析（不整读文件）；时间戳每行只提取一次，今日过滤与小时分桶共用
+            JSONLScanner.forEachLine(of: f) { line, _ in
+                autoreleasepool {
+                    guard let obj = json(line) else { return }
+                    let ts = timestamp(of: obj)
+                    if let ts, ts < start { return }   // 无时间戳视为今天（文件已按近 2 天过滤）
 
                     var usages: [[String: Any]] = []
                     collectDicts(obj, key: "usage", into: &usages)
-                    let model = firstString(inObject: obj, key: "model") ?? "claude"
                     var lineHadUsage = false
-                    for u in usages {
-                        if let c = counts(from: u) {
-                            byModel[model, default: TokenCounts()] += c
-                            hourly[hourBucket(obj)] += c
-                            lineHadUsage = true
-                            if Settings.shared.debugDump && !sampled { DebugLog.dumpJSON("token-claude-sample", u); sampled = true }
+                    if !usages.isEmpty {
+                        let model = firstString(inObject: obj, key: "model") ?? "claude"
+                        for u in usages {
+                            if let c = counts(from: u) {
+                                byModel[model, default: TokenCounts()] += c
+                                hourly[hourBucket(ts)] += c
+                                lineHadUsage = true
+                                if Settings.shared.debugDump && !sampled { DebugLog.dumpJSON("token-claude-sample", u); sampled = true }
+                            }
                         }
                     }
                     if lineHadUsage { requests += 1; sessionFiles.insert(f.path) }
@@ -170,35 +174,33 @@ enum TokenAggregator {
         return nil
     }
 
-    private static func firstString(inLines text: String, key: String) -> String? {
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true).prefix(50) {
-            if let obj = json(line), let s = firstString(inObject: obj, key: key) { return s }
+    /// 流式扫描文件前 scanLines 行，找到第一个 key 字段即停（供「取会话模型名」用，开销极小）。
+    private static func firstString(inFile url: URL, key: String, scanLines: Int) -> String? {
+        var found: String?
+        var seen = 0
+        JSONLScanner.forEachLine(of: url) { line, stop in
+            seen += 1
+            if let obj = json(line), let s = firstString(inObject: obj, key: key) { found = s; stop = true }
+            if seen >= scanLines { stop = true }
         }
-        return nil
+        return found
     }
 
-    /// 行是否属于今天：有时间戳就按时间戳判断，无则视为今天（文件已按近 2 天过滤）。
-    private static func lineIsToday(_ obj: Any, start: Date) -> Bool {
-        guard let ts = firstString(inObject: obj, key: "timestamp") ?? firstString(inObject: obj, key: "ts"),
-              let d = parseISO(ts) else { return true }
-        return d >= start
+    /// 该行的时间戳（每行只做这一次全树递归，今日过滤与小时分桶共用结果）。
+    private static func timestamp(of obj: Any) -> Date? {
+        guard let ts = firstString(inObject: obj, key: "timestamp") ?? firstString(inObject: obj, key: "ts")
+        else { return nil }
+        return parseISO(ts)
     }
 
-    /// 该行时间戳落在的小时分桶（0...hourBuckets-1）；无时间戳按当前小时算。
-    private static func hourBucket(_ obj: Any) -> Int {
-        let hour: Int
-        if let ts = firstString(inObject: obj, key: "timestamp") ?? firstString(inObject: obj, key: "ts"),
-           let d = parseISO(ts) {
-            hour = Calendar.current.component(.hour, from: d)
-        } else {
-            hour = Calendar.current.component(.hour, from: Date())
-        }
+    /// 时间戳落在的小时分桶（0...hourBuckets-1）；无时间戳按当前小时算。
+    private static func hourBucket(_ date: Date?) -> Int {
+        let hour = Calendar.current.component(.hour, from: date ?? Date())
         return min(hourBuckets - 1, max(0, hour / (24 / hourBuckets)))
     }
 
-    private static func json(_ line: Substring) -> Any? {
-        guard let data = line.data(using: .utf8) else { return nil }
-        return try? JSONSerialization.jsonObject(with: data)
+    private static func json(_ line: String) -> Any? {
+        try? JSONSerialization.jsonObject(with: Data(line.utf8))
     }
 
     private static func recentFiles(in dir: URL, withinHours: Double = 48) -> [URL]? {

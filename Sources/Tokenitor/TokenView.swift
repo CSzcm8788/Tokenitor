@@ -35,16 +35,10 @@ struct TokenView: View {
             } else {
                 toolTabs
                 if let stat = store.tokenStats.first(where: { $0.tool == resolvedSelected }) {
-                    TokenStatCard(stat: stat)
+                    TokenStatCard(stat: stat, updatedAt: store.tokensUpdate)   // 「更新于」在卡片标题下
                 }
             }
             // 成本估算 / Claude 无本地数据等说明已移到「说明」子页（点头部 ? 进入），不再挤占本页。
-
-            if let t = store.tokensUpdate {
-                Text("更新于 \(timeString(t))")
-                    .font(.uiCaption)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
@@ -62,9 +56,6 @@ struct TokenView: View {
         }
     }
 
-    private func timeString(_ d: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "HH:mm:ss"; return f.string(from: d)
-    }
 }
 
 /// Token 页的「说明」子页：把成本估算 / Claude 无本地数据等说明集中到这里，
@@ -83,7 +74,7 @@ struct TokenInfoView: View {
                 }
             }
 
-            note("成本口径", "成本为按公开定价估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。")
+            note("成本口径", "成本为按公开定价（截至 \(Pricing.asOf)）估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。")
             note("Claude", "仅 Claude Code 终端会把 token 写到本地（~/.claude/projects）；Mac app / 网页不写本地，故 Token 页无 Claude 数据。")
 
             Spacer(minLength: 0)
@@ -139,6 +130,7 @@ private struct ToolIconTab: View {
 /// 单个工具的 Tokenscope 风格卡片，内部维护自己的 Day/Week/Month 选择。
 private struct TokenStatCard: View {
     let stat: TokenStat
+    var updatedAt: Date? = nil   // 标题下方显示「更新于 N分钟前」
     @State private var period: TokenPeriod = .week
 
     private var report: PeriodReport {
@@ -175,8 +167,15 @@ private struct TokenStatCard: View {
     // MARK: - 卡片头 / hero / 分色条
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text(stat.tool).font(.sectionTitle)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stat.tool).font(.sectionTitle)
+                if let t = updatedAt {
+                    Text("更新于 \(formatUpdatedAgo(t))")
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             Picker("周期", selection: $period) {
                 Text("Day").tag(TokenPeriod.day)

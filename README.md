@@ -17,13 +17,14 @@
 
 下拉菜单:
   Claude
+    更新于 1分钟前
     🟢 5h           ▓▓▓▓░░ 剩 64%   ↻ 2h31m
     🟡 weekly       ▓▓░░░░ 剩 38%   ↻ thu 13h
     🟢 weekly Sonnet ▓▓▓▓▓░ 剩 80%  ↻ thu 13h
   Codex
+    更新于 1分钟前
     🔴 5h           ░░░░░░ 剩 8%    ↻ 1h05m
     🟡 weekly       ▓▓░░░░ 剩 41%   ↻ mon 09h
-  更新于 14:32:07
   立即刷新
   设置 ▸
   退出
@@ -33,7 +34,7 @@
 
 | 工具 | 来源 | 说明 |
 |------|------|------|
-| Claude | `https://api.anthropic.com/api/oauth/usage` | 社区发现的**未公开** OAuth 端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里，首次会弹「允许访问钥匙串」，点「始终允许」即可）。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
+| Claude | `https://api.anthropic.com/api/oauth/usage` | 社区发现的**未公开** OAuth 端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里；首次会弹「允许访问钥匙串」，建议点「允许」——每次询问，不推荐「始终允许」）。对 Claude Code 的凭证**只读、绝不代它续期**，不会影响 Claude Code 自己的登录态。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数，对约 1000 次/天估算（**本地估算**，仅本机 CLI），本地 0 点重置。**注**：2026-06-18 起 Google 已对个人账号停服旧版 Gemini CLI（迁移到 Antigravity CLI `agy`）；近 36h 无活动会自动隐藏，避免显示过期数据。 |
 | GitHub Copilot | `https://api.github.com/copilot_internal/user` | 用 `~/.config/github-copilot/` 里的登录 token（gho_）请求 GitHub 内置端点，取 `quota_snapshots.premium_interactions` 的每月高级用量剩余%，每月 1 号 UTC 重置。个人 Pro 可直接用该 token 访问。属**非官方内部端点**，默认关闭、需手动开启，失效时优雅降级。 |
@@ -158,19 +159,29 @@ Sources/Tokenitor/
   Disclaimer.swift        首启免责声明弹窗
   Models.swift            UsageWindow / 颜色档位 / 倒计时格式化
   Settings.swift          UserDefaults 持久化设置
-  ClaudeProvider.swift    Claude OAuth 用量端点 + 磁盘缓存兜底
-  ClaudeAuth.swift        Claude 凭证读取 + 续期（form/JSON × 多端点）+ 钥匙串
+  ClaudeProvider.swift    Claude OAuth 用量端点 + 磁盘缓存兜底（状态串行队列防竞争）
+  ClaudeAuth.swift        Claude 凭证读取（Claude Code 线只读不续期）+ 自有凭证续期 + 钥匙串
   CopilotAuth.swift       GitHub Copilot device flow 授权 + 钥匙串 token
   CodexProvider.swift     Codex 会话文件解析
   GeminiProvider.swift    Gemini 今日请求数统计
   CopilotProvider.swift   Copilot 月度高级用量（copilot_internal/user）
   JSONHelpers.swift       宽容 JSON 遍历
-  Notifier.swift          系统通知（原生 + osascript 兜底）
-  DebugLog.swift / Log.swift 转储与日志
-relogin-claude.sh         一键重登脚本（打包进 App 资源）
+  JSONLScanner.swift      流式 JSONL 读取（分块逐行，不整读大文件）
+  Notifier.swift          系统通知（原生；拒绝授权则不弹）+ 告警引擎
+  DebugLog.swift / Log.swift 转储（脱敏）与日志（串行队列）
+Tests/TokenitorTests/     单元测试（脱敏 / JSON 解析 / 格式化 / 定价）
+relogin-claude.sh         一键重登脚本（打包进 App 资源，trap 保证配置还原）
 build.sh / install.sh     编译打包 / 一键安装
 DISCLAIMER.md             免责声明
 ```
+
+## 测试
+
+```bash
+swift test    # 单元测试：脱敏、宽容 JSON 解析、倒计时/相对时间格式化、定价估算
+```
+
+GitHub Actions（`.github/workflows/ci.yml`）在每次 push / PR 时自动跑 `swift build -c release` 与 `swift test`。
 
 ## 隐私
 
@@ -182,7 +193,7 @@ Token 用量页只读本地会话文件/数据库（Codex / Claude Code / OpenCo
 
 - Claude 端点为非官方接口，Anthropic 若调整会导致该部分失效（Codex 不受影响）。
 - 仅适用于 **Anthropic 订阅（Pro/Max）登录**：若 Claude Code 走的是 API key 计费（如接第三方/DeepSeek），则没有 5h/周用量可显示，需用订阅账号 `/login` 一次（见下）。
-- **Token 自动续期**：access token 几小时过期，App 会用 refresh token 自动续期并存进 **macOS 钥匙串**（加密，条目 `com.tokenitor.app`；旧版明文缓存 `~/.tokenitor/claude-creds.json` 会在首次读取时自动迁移进钥匙串并删除）。但 Anthropic 的续期端点可能被 Cloudflare 拦截外部请求；若续期失败，Claude 栏会提示"请重新 /login"，按下面步骤重登一次即可。
+- **Token 过期**：access token 几小时过期。**Tokenitor 不代 Claude Code 续期**（1.0.1 起）——代续会轮换掉 Claude Code 手里的 refresh token、把它登出，因此 Claude Code 的凭证一律只读；过期时 Claude 栏会提示「请在 Claude Code 里任意执行一次请求让它自动续期」，之后点刷新即可。仅 Tokenitor 自己历史续期得到的凭证线（存钥匙串条目 `com.tokenitor.app`；旧版明文缓存 `~/.tokenitor/claude-creds.json` 首次读取自动迁入并删除）仍会自动续期，且已失效的 refresh token 会记入黑名单、不再重试。
 
 ### 用订阅账号登录（生成可读凭证）
 
@@ -211,7 +222,7 @@ mv ~/.claude/settings.json.off ~/.claude/settings.json   # 放回，恢复日常
 
 ## 通知与代码签名
 
-通知优先用原生 `UNUserNotificationCenter`（带 Tokenitor 自己的图标，前台也能展示）；**发送前实时查询授权状态**，未授权先请求、授权后才发原生（确保用 App 图标），被拒绝才回退 `osascript`（图标为脚本编辑器）。首次运行请在「系统设置 → 通知 → Tokenitor」**允许通知**。
+通知用原生 `UNUserNotificationCenter`（带 Tokenitor 自己的图标，前台也能展示）；**发送前实时查询授权状态**，未授权先请求、授权后才发原生（确保用 App 图标）。**用户拒绝授权则不再弹任何通知**（1.0.1 起，不再用 osascript 绕过；osascript 兜底仅保留给未打包的开发裸跑场景）。首次运行请在「系统设置 → 通知 → Tokenitor」**允许通知**。
 
 原生通知 / 正确图标需要**稳定的代码签名身份**（ad-hoc 每次构建身份都变，会导致授权反复失效、图标缓存错乱）。`build.sh` 的签名优先级：环境变量 `CODESIGN_ID` ＞ **Developer ID Application**（自动探测，推荐）＞ 自签名 `Tokenitor Self` ＞ ad-hoc。有 Apple 开发者账号者会自动用 Developer ID，身份稳定。
 > 换图标后通知仍显示旧图标：多为系统图标缓存或磁盘上有旧副本——保证只保留一份 App、`lsregister -f` 重注册、必要时清 `iconservices` 缓存即可。
@@ -237,6 +248,17 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 [MIT](LICENSE) © 2026 CSzcm8788。可自由使用 / 修改 / 分发（含商用），需保留版权声明；软件按「原样」提供，不含任何担保。
 
 ## 更新日志
+
+### 1.0.1
+
+安全与稳定性修复版（全面审计后的针对性修复）。
+
+- **凭证安全**：对 Claude Code 的凭证改为**只读**——不再代它续期（代续会轮换其 refresh token、把 Claude Code 登出），也不再回写进自己的钥匙串；已失效（`invalid_grant`）的 refresh token 记入黑名单，杜绝无退避的续期重试。读取 Claude Code 钥匙串条目改用 Security API（弹窗授权只落在 Tokenitor 本体，不再经由 `/usr/bin/security` 弱化条目 ACL）。
+- **稳定性**：刷新流程加 120s 看门狗，单个数据源回调丢失不再导致全 app 停止刷新；Claude 数据源共享状态收敛到串行队列，消除数据竞争；`relogin-claude.sh` 加 `trap`，中途关窗也会还原 `~/.claude/settings.json`。
+- **通知**：用户拒绝授权后不再用 osascript 绕过；限流/断网时展示的缓存旧数据不再触发「即将耗尽」告警；AppleScript 文案完整转义。
+- **性能**：本地 token 聚合改流式逐行解析（不再整读上百 MB 会话文件），时间戳每行只提取一次；OpenCode 改为 SQL 层过滤当日数据（不再全表载入）；刘海面板轮询降频 + 事件节流。
+- **界面**：「更新于」改为相对时间（如 *1分钟前*），显示在各卡片标题下方（原先在页面底部）。
+- **工程**：新增单元测试（脱敏 / JSON 解析 / 格式化 / 定价）与 GitHub Actions CI；版本号 / UA 收敛到单一来源。
 
 ### 1.0.0
 

@@ -6,14 +6,20 @@ struct AIMonitorPanel: View {
     var compact: Bool = false
     var warnAt: Double
     var critAt: Double
+    /// 数据的刷新时间：非 compact 卡片在标题下方显示「更新于 N分钟前」。
+    var updatedAt: Date? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 10) {
-            // 标题行
-            HStack(spacing: 8) {
+            // 标题行 + 更新时间（相对时间，随每轮刷新重绘）
+            VStack(alignment: .leading, spacing: 2) {
                 Text(snap.name)
                     .font(compact ? .uiCaption : .sectionTitle)
-                Spacer()
+                if let t = updatedAt, !compact {
+                    Text("更新于 \(formatUpdatedAgo(t))")
+                        .font(.uiCaption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if let note = snap.note, !note.isEmpty, !compact {

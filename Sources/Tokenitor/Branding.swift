@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// 应用标识（版本号 / User-Agent 的全局唯一来源，避免散落各处发版时漏改）。
+enum AppInfo {
+    /// 打包运行时从 Info.plist 读；`swift run` 裸跑时兜底。
+    static let version: String =
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0.1"
+    /// 诚实标识自己的 User-Agent，不伪装任何官方客户端。
+    static let userAgent = "Tokenitor/\(version)"
+}
+
 // 第三方品牌 logo / 图标 / 配色已彻底移除（2026-07）：AI 一律只用名称文字标识，
 // 不加载任何品牌 PNG、也不用会让人联想到品牌的图标。仅保留下面的「用量三态色板」。
 

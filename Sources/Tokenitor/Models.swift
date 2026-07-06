@@ -28,6 +28,9 @@ struct ProviderSnapshot {
     var note: String? = nil
     /// 是否在 UI 中隐藏（未安装/未登录/未使用 → 界面不显示这一栏）
     var hidden: Bool = false
+    /// 是否为过期缓存数据（限流/断网时展示上次成功结果）。UI 照常显示，但告警引擎跳过，
+    /// 避免基于几小时前的旧数据推送「即将耗尽」通知。
+    var isStale: Bool = false
 
     static func failed(_ name: String, _ message: String) -> ProviderSnapshot {
         ProviderSnapshot(name: name, windows: [], ok: false, error: message)
@@ -68,6 +71,16 @@ enum UsageLevel {
         case .critical: return "🔴"
         }
     }
+}
+
+/// 「更新于」相对时间：刚刚 / N分钟前 / N小时前；超过一天显示 M/d HH:mm。
+func formatUpdatedAgo(_ date: Date, now: Date = Date()) -> String {
+    let secs = Int(now.timeIntervalSince(date))
+    if secs < 60 { return "刚刚" }
+    if secs < 3600 { return "\(secs / 60)分钟前" }
+    if secs < 86400 { return "\(secs / 3600)小时前" }
+    let df = DateFormatter(); df.dateFormat = "M/d HH:mm"
+    return df.string(from: date)
 }
 
 /// 把重置时间格式化为 "2h30m" / "thu 13h" 之类的倒计时文案。

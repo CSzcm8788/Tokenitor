@@ -13,17 +13,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pageObserver: AnyCancellable?     // 进入 Token 页时立即刷新一次
     private var isFetching = false
     private var pendingRefresh = false
+    private var fetchGeneration = 0   // 刷新代数：看门狗与迟到回调用它识别「这轮是否已被收尾」
 
     // 数据源由模块化注册表生成（增删 AI 只改 AIKind）
     private let providers: [UsageProvider] = AIKind.allCases.map { $0.makeProvider() }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         log("applicationWillFinishLaunching")
-        // 单实例保护：已有同 bundle 的实例在跑就退出本次，避免重复通知
+        // 单实例保护：已有同 bundle 的实例在跑就激活它、退出本次，避免重复通知
         if let bid = Bundle.main.bundleIdentifier {
             let running = NSRunningApplication.runningApplications(withBundleIdentifier: bid)
             if running.count > 1 {
-                log("已有实例在运行，退出本次启动")
+                running.first { $0 != NSRunningApplication.current }?
+                    .activate(options: [.activateIgnoringOtherApps])
+                log("已有实例在运行，已激活它并退出本次启动")
                 exit(0)
             }
         }
@@ -59,8 +62,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             log("relogin-claude.sh 未找到")
             return
         }
-        let path = url.path.replacingOccurrences(of: "'", with: "'\\''")
-        let script = "tell application \"Terminal\"\nactivate\ndo script \"bash '\(path)'\"\nend tell"
+        // 两层转义：路径先按 shell 单引号规则转义，再整体按 AppleScript 双引号字符串规则转义
+        //（反斜杠 + 双引号都要处理，缺一层就可能破坏脚本结构）。
+        let shellCmd = "bash '" + url.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let asCmd = shellCmd
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "tell application \"Terminal\"\nactivate\ndo script \"\(asCmd)\"\nend tell"
         let task = Process()
         task.launchPath = "/usr/bin/osascript"
         task.arguments = ["-e", script]
@@ -289,6 +297,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if isFetching { pendingRefresh = true; return }
         isFetching = true
         pendingRefresh = false
+        fetchGeneration += 1
+        let gen = fetchGeneration
+
+        // 看门狗：任一数据源的 completion 丢失（逻辑分支遗漏/框架异常）时，
+        // 不让 isFetching 永久卡死导致全 app 静默停止刷新。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120) { [weak self] in
+            guard let self, self.isFetching, self.fetchGeneration == gen else { return }
+            log("刷新看门狗触发：有数据源 120s 未回调，强制收尾本轮")
+            self.finishFetch()
+        }
 
         let active = providers.filter { $0.enabled }
         if active.isEmpty {
@@ -313,6 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         group.notify(queue: .main) {
+            // 看门狗已收尾且新一轮已开始 → 本轮结果作废，不覆盖新数据、不重复收尾
+            guard self.fetchGeneration == gen else { return }
             // 按 providers 原始顺序排列；只显示“正在使用”的 AI，未读取到的(hidden)过滤掉
             let ordered = active.compactMap { results[$0.displayName] }.filter { !$0.hidden }
             self.statusController.render(ordered)

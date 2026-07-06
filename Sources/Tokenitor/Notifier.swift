@@ -53,19 +53,18 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                     }
                 }
             case .notDetermined:
-                // 还没问过权限：先请求，批了再发（这次就是原生），拒了才兜底
+                // 还没问过权限：先请求，批了再发（这次就是原生）；拒了则尊重选择不弹
                 center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
                     if granted {
                         self.authorized = true
                         self.notify(title: title, body: body)   // 重发一次，走原生
                     } else {
-                        self.notifyViaOSAScript(title: title, body: body)
+                        log("用户拒绝了通知授权，不弹出")
                     }
                 }
             default:
-                // denied → 只能 osascript 兜底（图标会是脚本编辑器）
-                log("通知未授权（denied），回退 osascript")
-                self.notifyViaOSAScript(title: title, body: body)
+                // denied = 用户明确拒绝了本 app 的通知 → 尊重选择，不再用 osascript 绕过。
+                log("通知未授权（denied），按用户选择不弹出")
             }
         }
     }
@@ -73,10 +72,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// 供「测试通知」按钮调用。
     func test() { notify(title: "Tokenitor 测试通知", body: "如果你看到这条，通知就正常了 ✅") }
 
+    /// 按 AppleScript 双引号字符串规则完整转义（反斜杠必须先于引号处理，
+    /// 否则含 `\` 的文案会把脚本的收尾引号转义掉、破坏脚本结构）。
+    private func appleScriptQuoted(_ s: String) -> String {
+        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    /// 仅用于未打包（无 bundle）时的兜底；正式包一律走 UserNotifications。
     private func notifyViaOSAScript(title: String, body: String) {
-        let safeTitle = title.replacingOccurrences(of: "\"", with: "'")
-        let safeBody = body.replacingOccurrences(of: "\"", with: "'")
-        let script = "display notification \"\(safeBody)\" with title \"\(safeTitle)\""
+        let script = "display notification \(appleScriptQuoted(body)) with title \(appleScriptQuoted(title))"
         let task = Process()
         task.launchPath = "/usr/bin/osascript"
         task.arguments = ["-e", script]
@@ -101,7 +106,8 @@ final class AlertEngine {
         let warn = Settings.shared.warnAt
         let crit = Settings.shared.critAt
 
-        for snap in snapshots where snap.ok {
+        // 跳过 stale（限流/断网时的缓存旧数据）：不基于几小时前的快照推「即将耗尽」告警
+        for snap in snapshots where snap.ok && !snap.isStale {
             for w in snap.windows {
                 let key = "\(snap.name)|\(w.label)"
                 let remaining = w.remainingPercent

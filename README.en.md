@@ -18,7 +18,7 @@ Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; r
 
 | Tool | Source | Notes |
 |------|--------|-------|
-| Claude | `https://api.anthropic.com/api/oauth/usage` | Community-found **undocumented** OAuth endpoint returning 5h / weekly used-% and reset times. This is **account-level shared usage**, so one reading covers the Claude desktop app, web, and Claude Code. Token is read from `~/.claude/.credentials.json`, falling back to the macOS Keychain. **⚠️ Advanced · off by default:** this endpoint uses subscription credentials that, per Anthropic's terms, are intended for Claude Code / Claude.ai only; third-party use may violate those terms. Enable it only after confirming the in-app risk prompt. |
+| Claude | `https://api.anthropic.com/api/oauth/usage` | Community-found **undocumented** OAuth endpoint returning 5h / weekly used-% and reset times. This is **account-level shared usage**, so one reading covers the Claude desktop app, web, and Claude Code. Token is read from `~/.claude/.credentials.json`, falling back to the macOS Keychain — **read-only: Tokenitor never refreshes Claude Code's tokens on its behalf** (that would rotate its refresh token and log it out); when the token expires, just run any request in Claude Code and hit refresh. **⚠️ Advanced · off by default:** this endpoint uses subscription credentials that, per Anthropic's terms, are intended for Claude Code / Claude.ai only; third-party use may violate those terms. Enable it only after confirming the in-app risk prompt. |
 | Codex | `~/.codex/sessions/**/*.jsonl` | Parses `rate_limits` from recent session files (primary = 5h, secondary = weekly). Fully local, no network. |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json` | Counts today's requests and estimates against ~1000/day (**local estimate**). Note: since 2026-06-18 Google discontinued the legacy Gemini CLI for personal accounts; inactive for ~36h and the row auto-hides. |
 | GitHub Copilot | `https://api.github.com/copilot_internal/user` | Uses the `gho_` login token in `~/.config/github-copilot/` to request GitHub's built-in endpoint and read `quota_snapshots.premium_interactions` (monthly premium usage remaining %, resets on the 1st UTC). Individual Pro can use the token directly. **Non-official internal endpoint**, off by default (opt-in); degrades gracefully if it changes. |
@@ -37,6 +37,8 @@ bash install.sh          # build + install to /Applications + launch
 ```
 
 Uninstall: `bash uninstall.sh`. Build only: `bash build.sh && open dist/Tokenitor.app`. First launch may be blocked by Gatekeeper — right-click → Open.
+
+Run the unit tests with `swift test` (redaction, tolerant JSON parsing, formatting, pricing); CI runs build + tests on every push.
 
 Enable **Launch at login** from the in-app Settings (native login item via `SMAppService`).
 

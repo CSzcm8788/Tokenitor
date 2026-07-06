@@ -54,7 +54,8 @@ enum DebugLog {
         return Data(redactString(String(decoding: data, as: UTF8.self)).utf8)
     }
 
-    private static func redactJSON(_ any: Any) -> Any {
+    // internal（非 private）：纯函数，供单元测试直接验证脱敏不漏
+    static func redactJSON(_ any: Any) -> Any {
         if let dict = any as? [String: Any] {
             var out: [String: Any] = [:]
             for (k, v) in dict {
@@ -74,7 +75,7 @@ enum DebugLog {
     }
 
     /// 抹掉常见 token 样式：OpenAI/DeepSeek `sk-…`、GitHub `gho_…/ghp_…`、Anthropic `sk-ant-…`、JWT `eyJ….….…`。
-    private static func redactString(_ s: String) -> String {
+    static func redactString(_ s: String) -> String {
         var out = s
         let patterns = [
             "sk-ant-[A-Za-z0-9_-]{10,}",

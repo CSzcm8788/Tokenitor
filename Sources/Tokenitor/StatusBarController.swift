@@ -4,12 +4,11 @@ import SwiftUI
 /// 菜单栏图标 + SwiftUI 弹层(popover)。
 /// 左键：弹出和主窗口同款的 SwiftUI 面板(用量卡片 + ⚙️ 设置，胶囊开关 / 当前值下拉)。
 /// 右键：精简上下文菜单(立即刷新 / 使用说明 / 退出)。
-/// 标题：app 图标 + 「剩余%」(取最紧张的窗口，用档位色，不再用代码/emoji)。
+/// 菜单栏本体只显示图标；数据展示全部在弹层里（自动跟随 store）。
 final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let store: UsageStore
     private let popover = NSPopover()
-    private var snapshots: [ProviderSnapshot] = []
 
     /// 由 AppDelegate 注入的回调
     var onRefreshNow: (() -> Void)?
@@ -46,7 +45,6 @@ final class StatusBarController: NSObject {
 
     /// 弹层内容是 SwiftUI、自动跟随 store；菜单栏只保留图标，不显文字。
     func render(_ snaps: [ProviderSnapshot]) {
-        snapshots = snaps
         statusItem.button?.attributedTitle = NSAttributedString(string: "")
     }
 
