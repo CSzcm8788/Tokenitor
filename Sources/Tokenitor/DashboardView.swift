@@ -180,6 +180,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.3.1", L("Token 聚合增量解析：消除周期性内存峰值与 CPU 尖刺", "Incremental token parsing: no more periodic memory/CPU spikes")),
         ("1.3.0", L("英文界面（全量文案，默认跟随系统语言）", "Full English localization (follows system language by default)")),
         ("1.2.2", L("渐进渲染（先到先显示）· 设置页重组 · 官方社交图形标", "Progressive rendering · Settings regroup · Official social marks")),
         ("1.2.1", L("外观预览缩略图 · 悬停反馈 · Token 工具入边栏 · 说明页降噪", "Appearance previews · Hover feedback · Token tools in sidebar")),
