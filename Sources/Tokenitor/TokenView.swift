@@ -207,7 +207,9 @@ private struct TokenStatCard: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(subLines, id: \.self) { line in
-                    Text(line).font(.numMicro).foregroundStyle(.tertiary).lineLimit(1)
+                    Text(line).font(.numMicro).foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)   // 窄窗口按比例缩字，不出现「…」截断
                 }
             }
             .frame(height: 24, alignment: .topLeading)   // 固定副文案区高：列高恒等
@@ -283,10 +285,11 @@ private struct TokenStatCard: View {
                     }
             }
             .frame(height: 5)
-            Text(formatTokens(m.counts.total))
+            Text(fmtShort(m.counts.total))
                 .font(.num)
+                .lineLimit(1)                        // 数字与单位永不折行（此前 451.96M 会折成两行）
                 .foregroundStyle(.secondary)
-                .frame(width: 46, alignment: .trailing)
+                .frame(width: 50, alignment: .trailing)
             Text(formatUSD(m.cost))
                 .font(.num)
                 .frame(width: 52, alignment: .trailing)
