@@ -45,6 +45,8 @@ struct HelpView: View {
                     bullet(L("**来源**：`~/.claude/projects`、`~/.codex/sessions`、`opencode.db`；取每条消息的 token 数与模型名。", "**Sources**: `~/.claude/projects`, `~/.codex/sessions`, `opencode.db` — token counts and model names per message."))
                     bullet(L("**成本**：定价表（截至 \(Pricing.asOf)）估「等值花费」（非账单）；无定价显「—」、不计入。", "**Cost**: equivalent-spend estimate from the price table (as of \(Pricing.asOf)), not a bill; unpriced models show \u{201C}—\u{201D}."))
                     bullet(L("**Claude**：仅 Claude Code 终端写本地；Mac App / 网页不写，故此页无 Claude。", "**Claude**: only the Claude Code terminal writes local files; the Mac app / web do not, so no Claude here."))
+                    bullet(L("**缓存节省**：绿色提示条按「缓存读 vs 全价输入」的价差估算省下的钱，只统计有定价的模型。", "**Cache savings**: the green line estimates money saved by cache reads vs full-price input, priced models only."))
+                    bullet(L("**订阅档位胶囊**：本地能读到且能对上真实档位名（Claude `subscriptionType`、Codex JWT claim、Copilot `copilot_plan`）才显示；账户类型（如 individual）或存疑值一律不显示。", "**Plan chips**: shown only when a locally readable value maps to a real tier (Claude `subscriptionType`, Codex JWT claim, Copilot `copilot_plan`); account types (e.g. individual) or dubious values are never shown."))
                 }
 
                 // ③ 合规姿态。

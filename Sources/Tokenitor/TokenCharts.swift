@@ -1,9 +1,19 @@
 import SwiftUI
 
 /// Token 页的周期切换。
-enum TokenPeriod: String, CaseIterable { case day = "Day", week = "Week", month = "Month" }
+enum TokenPeriod: String, CaseIterable {
+    case day, week, month
 
-/// 十六进制颜色（Tokenscope 的排名调色板用固定 hex 值，浅/深色模式通用）。
+    var label: String {
+        switch self {
+        case .day:   return L("日", "Day")
+        case .week:  return L("周", "Week")
+        case .month: return L("月", "Month")
+        }
+    }
+}
+
+/// 十六进制颜色（浅/深色模式通用的固定色值用）。
 extension Color {
     init(hex: String) {
         var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,7 +32,7 @@ struct PeriodSegmented: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(TokenPeriod.allCases, id: \.self) { p in
-                Text(p.rawValue)
+                Text(p.label)
                     .font(.uiCaption)
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(
@@ -40,197 +50,120 @@ struct PeriodSegmented: View {
     }
 }
 
-// MARK: - 涨跌徽标
+// MARK: - 涨跌徽标（中性灰：用量涨跌是事实不是警报，红色留给配额告警）
 
 struct DeltaBadge: View {
     let value: Double   // 百分比，正负均可
 
     var body: some View {
-        let up = value >= 0
-        // 用量/成本上涨是「坏事」→ 红；下降是「好事」→ 绿。
-        let color = up ? Color(red: 0.88, green: 0.47, blue: 0.37) : GaugeColor.healthy
-        Text("\(up ? "▲" : "▼")\(Int(abs(value).rounded()))%")
+        Text("\(value >= 0 ? "▲" : "▼")\(Int(abs(value).rounded()))%")
             .font(.num)
             .padding(.horizontal, 5).padding(.vertical, 1.5)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(color.opacity(up ? 0.16 : 0.14)))
-            .foregroundStyle(color)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.07)))
+            .foregroundStyle(.secondary)
     }
 }
 
-// MARK: - 堆叠柱状图（output 在上，input+cache 在下）
+// MARK: - 分组柱状图：每个时间点三根细柱（输入 / 缓存 / 输出）
 
-struct TokenBarChart: View {
+/// 横向刻度线 0 / ½ / 顶（左侧标注量级），高亮组全亮、其余降透明度；
+/// 输出量级通常远小于输入，给 2px 最小可见高度保底。
+struct GroupedTokenChart: View {
     let data: [SeriesPoint]
-    var height: CGFloat = 84
+    /// 高亮哪一组（周/月视图 = 最后一组「今天/本周」；日视图 = 当前小时段）。
+    var highlightIndex: Int? = nil
+    var height: CGFloat = 96
     @State private var hoverIndex: Int? = nil
 
-    private var maxV: Int { max(data.map { $0.total }.max() ?? 0, 1) }
-    private var barSpacing: CGFloat { data.count > 10 ? 2 : 5 }
+    static let inputColor = Color.accentColor
+    static let cacheColor = Color.accentColor.opacity(0.35)
+    static let outputColor = Color(hex: "2E6BC7")   // 深蓝，浅/深色模式都可辨
+
+    private var maxV: Int {
+        max(data.flatMap { [$0.input, $0.cache, $0.output] }.max() ?? 0, 1)
+    }
+    private var groupSpacing: CGFloat { data.count > 10 ? 4 : 10 }
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                gridLines
-                HStack(alignment: .bottom, spacing: barSpacing) {
-                    ForEach(Array(data.enumerated()), id: \.offset) { i, d in
-                        VStack(spacing: 0) {
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(Color.accentColor.opacity(0.55))
-                                .frame(height: barHeight(d.output))
-                            Rectangle()
-                                .fill(Color.accentColor)
-                                .frame(height: barHeight(d.input + d.cache))
+        VStack(spacing: 4) {
+            HStack(alignment: .top, spacing: 6) {
+                axis
+                ZStack {
+                    gridLines
+                    HStack(alignment: .bottom, spacing: groupSpacing) {
+                        ForEach(Array(data.enumerated()), id: \.offset) { i, d in
+                            group(d, index: i)
                         }
-                        .frame(maxWidth: .infinity)
-                        .opacity(hoverIndex == nil || hoverIndex == i || d.total == 0 ? 1 : 0.55)
-                        .contentShape(Rectangle())
-                        .onHover { h in hoverIndex = h ? i : (hoverIndex == i ? nil : hoverIndex) }
-                        .help(d.total == 0 ? "No tokens · \(d.full)" : "\(formatTokens(d.total)) tokens · \(d.full)")
                     }
+                    .padding(.horizontal, 4)
                 }
+                .frame(height: height)
             }
-            .frame(height: height)
-
-            HStack(spacing: barSpacing) {
-                ForEach(Array(data.enumerated()), id: \.offset) { _, d in
+            HStack(spacing: groupSpacing) {
+                Color.clear.frame(width: axisWidth, height: 1)
+                ForEach(Array(data.enumerated()), id: \.offset) { i, d in
                     Text(d.label)
                         .font(.numMicro)
-                        .foregroundStyle(.tertiary)
+                        .fontWeight(i == highlightIndex ? .semibold : .medium)
+                        .foregroundStyle(i == highlightIndex ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
                         .frame(maxWidth: .infinity)
                 }
             }
         }
     }
 
-    private func barHeight(_ v: Int) -> CGFloat {
-        guard v > 0 else { return 0 }
-        return max(2, CGFloat(v) / CGFloat(maxV) * height)
+    private let axisWidth: CGFloat = 34
+
+    /// 左侧刻度标注：顶 / 中 / 0，与三条网格线对齐。
+    private var axis: some View {
+        VStack(spacing: 0) {
+            Text(formatTokens(maxV)).frame(maxHeight: 0, alignment: .top)
+            Spacer()
+            Text(formatTokens(maxV / 2))
+            Spacer()
+            Text("0").frame(maxHeight: 0, alignment: .bottom)
+        }
+        .font(.numMicro)
+        .foregroundStyle(.tertiary)
+        .frame(width: axisWidth, height: height, alignment: .trailing)
+        .multilineTextAlignment(.trailing)
     }
 
     private var gridLines: some View {
         GeometryReader { geo in
-            ForEach([0.25, 0.5, 0.75, 1.0], id: \.self) { g in
+            ForEach([0.0, 0.5, 1.0], id: \.self) { g in
                 Path { p in
                     let y = geo.size.height * (1 - g)
                     p.move(to: CGPoint(x: 0, y: y))
                     p.addLine(to: CGPoint(x: geo.size.width, y: y))
                 }
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(Color.primary.opacity(g == 0 ? 0.14 : 0.06),
+                        style: StrokeStyle(lineWidth: 1, dash: g == 0 ? [] : [3, 3]))
             }
         }
     }
-}
 
-// MARK: - 成本环形图（按成本排名取 5 级绿色渐变，与 Tokenscope 一致）
-
-struct CostDonutChart: View {
-    let models: [ModelTokens]
-    var size: CGFloat = 100
-    var thickness: CGFloat = 15
-    @State private var hoverIndex: Int? = nil
-
-    private static let palette = ["1f9d63", "34c27e", "6ad0a0", "a7e3c5", "4b5a52"]
-    private static let overflow = "79817b"
-
-    private var ranked: [(m: ModelTokens, color: Color)] {
-        models.sorted { $0.cost > $1.cost }.enumerated().map { i, m in
-            (m, Color(hex: i < Self.palette.count ? Self.palette[i] : Self.overflow))
+    private func group(_ d: SeriesPoint, index i: Int) -> some View {
+        let active = i == highlightIndex || hoverIndex == i
+        return HStack(alignment: .bottom, spacing: 2) {
+            bar(d.input, Self.inputColor)
+            bar(d.cache, Self.cacheColor)
+            bar(d.output, Self.outputColor)
         }
-    }
-    private var total: Double { max(models.reduce(0) { $0 + $1.cost }, 1e-9) }
-    private var centerAmount: Double {
-        if let i = hoverIndex, i < ranked.count { return ranked[i].m.cost }
-        return models.reduce(0) { $0 + $1.cost }
+        .frame(maxWidth: .infinity, alignment: .bottom)
+        .opacity(active || d.total == 0 ? 1 : 0.45)
+        .contentShape(Rectangle())
+        .onHover { h in hoverIndex = h ? i : (hoverIndex == i ? nil : hoverIndex) }
+        .help(d.total == 0
+              ? L("\(d.full) · 无数据", "\(d.full) · no data")
+              : L("\(d.full)：输入 \(formatTokens(d.input)) · 缓存 \(formatTokens(d.cache)) · 输出 \(formatTokens(d.output))",
+                  "\(d.full): in \(formatTokens(d.input)) · cache \(formatTokens(d.cache)) · out \(formatTokens(d.output))"))
     }
 
-    var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            ZStack {
-                ForEach(Array(ranked.enumerated()), id: \.offset) { i, item in
-                    let frac = item.m.cost / total
-                    let start = ranked.prefix(i).reduce(0.0) { $0 + $1.m.cost / total }
-                    Circle()
-                        .trim(from: start, to: min(1, start + frac))
-                        .stroke(item.color, style: StrokeStyle(lineWidth: thickness, lineCap: .butt))
-                        .rotationEffect(.degrees(-90))
-                        .opacity(hoverIndex == nil || hoverIndex == i ? 1 : 0.32)
-                        .contentShape(Circle())
-                        .onHover { h in hoverIndex = h ? i : (hoverIndex == i ? nil : hoverIndex) }
-                }
-                Text(formatUSDExact(centerAmount))
-                    .font(.numTitle)
-                    .foregroundStyle(hoverIndex.flatMap { $0 < ranked.count ? ranked[$0].color : nil } ?? Color.primary)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .padding(.horizontal, thickness)
-            }
-            .frame(width: size, height: size)
-
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(Array(ranked.enumerated()), id: \.offset) { i, item in
-                    HStack(spacing: 7) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(item.color).frame(width: 7, height: 7)
-                        Text(item.m.model)
-                            .font(.uiCaption).fontWeight(hoverIndex == i ? .semibold : .medium)
-                            .lineLimit(1)
-                        Spacer(minLength: 6)
-                        Text(formatUSDExact(item.m.cost))
-                            .font(.num)
-                            .foregroundStyle(hoverIndex == i ? item.color : Color.secondary)
-                    }
-                    .opacity(hoverIndex == nil || hoverIndex == i ? 1 : 0.45)
-                    .contentShape(Rectangle())
-                    .onHover { h in hoverIndex = h ? i : (hoverIndex == i ? nil : hoverIndex) }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 迷你曲线图（Requests / Cost trend 小卡片用）
-
-struct TokenSparkline: View {
-    let values: [Double]
-    var width: CGFloat = 52
-    var height: CGFloat = 20
-
-    private var points: [CGPoint] {
-        let vs = values.count >= 2 ? values : (values.isEmpty ? [0, 0] : [values[0], values[0]])
-        let maxV = vs.max() ?? 0, minV = vs.min() ?? 0
-        let range = max(maxV - minV, 1e-9)
-        let n = vs.count
-        return vs.enumerated().map { i, v in
-            CGPoint(x: n > 1 ? CGFloat(i) / CGFloat(n - 1) * width : width / 2,
-                    y: height - CGFloat((v - minV) / range) * height)
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color.accentColor.opacity(0.32), Color.accentColor.opacity(0)],
-                            startPoint: .top, endPoint: .bottom)
-                .mask(areaPath)
-            linePath.stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
-        }
-        .frame(width: width, height: height)
-    }
-
-    private var linePath: Path {
-        Path { p in
-            guard let first = points.first else { return }
-            p.move(to: first)
-            for pt in points.dropFirst() { p.addLine(to: pt) }
-        }
-    }
-    private var areaPath: Path {
-        Path { p in
-            guard let first = points.first, let last = points.last else { return }
-            p.move(to: CGPoint(x: first.x, y: height))
-            p.addLine(to: first)
-            for pt in points.dropFirst() { p.addLine(to: pt) }
-            p.addLine(to: CGPoint(x: last.x, y: height))
-            p.closeSubpath()
-        }
+    private func bar(_ v: Int, _ color: Color) -> some View {
+        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+            .fill(color)
+            .frame(maxWidth: .infinity)
+            .frame(height: v > 0 ? max(2, CGFloat(v) / CGFloat(maxV) * height) : 0)
     }
 }

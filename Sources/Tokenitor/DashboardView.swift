@@ -9,7 +9,7 @@ struct DashboardView: View {
     var body: some View {
         NavigationSplitView {
             sidebarList
-            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 230)
+            .navigationSplitViewColumnWidth(min: 156, ideal: 172, max: 200)
             .navigationTitle("Tokenitor")
         } detail: {
             detail
@@ -180,6 +180,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.0", L("Token 页重构：成本优先 KPI · 分组趋势图 · 模型合并表 · 订阅档位胶囊", "Token page redesign: cost-first KPIs · grouped trend · merged model table · plan chips")),
         ("1.3.1", L("Token 聚合增量解析：消除周期性内存峰值与 CPU 尖刺", "Incremental token parsing: no more periodic memory/CPU spikes")),
         ("1.3.0", L("英文界面（全量文案，默认跟随系统语言）", "Full English localization (follows system language by default)")),
         ("1.2.2", L("渐进渲染（先到先显示）· 设置页重组 · 官方社交图形标", "Progressive rendering · Settings regroup · Official social marks")),

@@ -16,9 +16,14 @@ final class ClaudeAuth {
         var access: String
         var refresh: String?
         var expiresAt: Date?
+        /// 凭证 JSON 里的订阅档位（subscriptionType，如 pro/max），仅展示用。
+        var subscriptionType: String?
         /// true = Tokenitor 自己的 token 线（可续期）；false = 读取自 Claude Code（只读）。
         var ownedByTokenitor = false
     }
+
+    /// 最近一次 loadCreds 读到的订阅档位（已过可信映射；nil = 不显示）。
+    private(set) var currentPlan: String?
 
     // Claude Code 公开 OAuth 客户端 ID（社区通用值）。
     private let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
@@ -201,9 +206,13 @@ final class ClaudeAuth {
             if let data = readKeychain(service: service), let c = parse(data) { candidates.append(c) }
         }
         guard !candidates.isEmpty else { return nil }
-        return candidates.max { a, b in
+        let best = candidates.max { a, b in
             (a.expiresAt ?? .distantPast) < (b.expiresAt ?? .distantPast)
         }
+        // 档位仅展示用：取任一来源里能读到的 subscriptionType（过可信映射，读不到就不显示）
+        currentPlan = PlanTier.claude(best?.subscriptionType
+            ?? candidates.compactMap(\.subscriptionType).first)
+        return best
     }
 
     /// 解析凭证 JSON（兼容 {claudeAiOauth:{...}} 与扁平结构）。
@@ -218,7 +227,8 @@ final class ClaudeAuth {
         if let v = JSON.firstValue(in: container, keys: ["expiresAt", "expires_at"]) {
             expires = JSON.date(v)
         }
-        return Creds(access: access, refresh: refresh, expiresAt: expires)
+        let sub = JSON.firstValue(in: container, keys: ["subscriptionType", "subscription_type"]) as? String
+        return Creds(access: access, refresh: refresh, expiresAt: expires, subscriptionType: sub)
     }
 
     /// 写回凭证到钥匙串（加密、访问受控），不再明文落盘。
@@ -238,6 +248,11 @@ final class ClaudeAuth {
          kSecAttrAccount as String: kcAccount]
     }
 
+    // 自己条目的读缓存（进程内）：本条目只由本类写入，故缓存读结果完全安全，
+    // 消除每次刷新都 SecItemCopyMatching → 反复弹「允许访问钥匙串」（尤其 ad-hoc 签名时）。
+    private var ownDataLoaded = false
+    private var ownDataCache: Data?
+
     private func keychainSave(_ data: Data) {
         let status = SecItemUpdate(keychainBaseQuery() as CFDictionary,
                                    [kSecValueData as String: data] as CFDictionary)
@@ -247,19 +262,23 @@ final class ClaudeAuth {
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             SecItemAdd(add as CFDictionary, nil)
         }
+        ownDataCache = data; ownDataLoaded = true   // 刚写入的即最新值，下次读直接命中缓存
     }
 
     private func keychainLoad() -> Data? {
+        if ownDataLoaded { return ownDataCache }   // 命中进程内缓存，不再打钥匙串
         var q = keychainBaseQuery()
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess else { return nil }
-        return out as? Data
+        let data = SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess ? out as? Data : nil
+        ownDataCache = data; ownDataLoaded = true
+        return data
     }
 
     private func keychainDelete() {
         SecItemDelete(keychainBaseQuery() as CFDictionary)
+        ownDataCache = nil; ownDataLoaded = true
     }
 
     /// 读取其它应用（Claude Code）的钥匙串条目 —— 用 Security API 而非起 `/usr/bin/security` 子进程：

@@ -295,6 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let dayVsYesterday = TokenHistory.shared.report(tool: tool, days: 1)
                     stats[i].day.deltaTokens = dayVsYesterday.deltaTokens
                     stats[i].day.deltaCost = dayVsYesterday.deltaCost
+                    stats[i].day.hasPrior = dayVsYesterday.hasPrior
                 }
                 DispatchQueue.main.async { self.store.updateTokens(stats) }
             }

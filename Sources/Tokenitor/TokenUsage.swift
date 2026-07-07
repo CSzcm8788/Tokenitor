@@ -45,6 +45,8 @@ struct PeriodReport: Equatable, Codable {
     var cost: Double = 0
     var deltaTokens: Double = 0   // 相对上一同长度周期的涨跌百分比
     var deltaCost: Double = 0
+    /// 上一同长度周期是否有数据；没有时环比无意义，UI 显示「—」而非误导性的 100%。
+    var hasPrior: Bool = false
     var requests = 0
     var sessions = 0
     var series: [SeriesPoint] = []
@@ -100,6 +102,14 @@ enum Pricing {
              + Double(c.output) / M * p.output
              + Double(c.cacheRead) / M * p.cacheRead
              + Double(c.cacheWrite) / M * p.cacheWrite
+    }
+
+    /// 缓存读相对「全价输入」省下的钱（只统计有定价的模型）——Token 页的洞察条用。
+    static func cacheSavings(_ models: [ModelTokens]) -> Double {
+        models.reduce(0) { acc, m in
+            guard let p = price(for: m.model) else { return acc }
+            return acc + Double(m.counts.cacheRead) / 1_000_000 * max(0, p.input - p.cacheRead)
+        }
     }
 }
 

@@ -65,7 +65,7 @@ final class ClaudeProvider: UsageProvider {
             // 卡片保持干净：不再挂"订阅共享用量 · Mac App / 网页 / Claude Code"描述文字
             //（该说明已在侧边栏「说明」页 → 各 AI 如何接入 → Claude 里）。失效/降级时的 note 仍保留。
             completion(ProviderSnapshot(name: displayName, windows: windows, ok: true,
-                                        error: nil, note: nil))
+                                        error: nil, note: nil, plan: auth.currentPlan))
         case .unauthorized:
             if refreshed {
                 completion(failOrCached(L("订阅 token 已失效，请重新用订阅账号 /login",

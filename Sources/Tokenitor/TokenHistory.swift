@@ -132,6 +132,7 @@ final class TokenHistory {
 
         let prevTotal = previous.reduce(0) { $0 + $1.snap.total }
         let prevCost = previous.reduce(0.0) { $0 + $1.snap.cost }
+        report.hasPrior = prevTotal > 0 || prevCost > 0   // 上一周期空 → 环比不展示
         report.deltaTokens = percentDelta(cur: Double(report.totalTokens), prev: Double(prevTotal))
         report.deltaCost = percentDelta(cur: report.cost, prev: prevCost)
         return report

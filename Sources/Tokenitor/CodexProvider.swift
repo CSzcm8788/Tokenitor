@@ -36,7 +36,8 @@ final class CodexProvider: UsageProvider {
             if let rl = lastRateLimits(in: text) {
                 let windows = parse(rl)
                 if !windows.isEmpty {
-                    return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil)
+                    return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil,
+                                            plan: PlanTier.codexPlanFromAuthFile())
                 }
             }
         }

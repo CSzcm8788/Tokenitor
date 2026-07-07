@@ -38,10 +38,9 @@ final class CopilotProvider: UsageProvider {
     // MARK: - 解析
 
     private func parse(_ root: [String: Any]) -> ProviderSnapshot {
-        // 套餐名（如 "Individual" / "Business"）：hero 卡片显示为胶囊
-        let plan = (root["copilot_plan"] as? String)?
-            .replacingOccurrences(of: "_", with: " ")
-            .capitalized
+        // 订阅档位：只有 copilot_plan 能映射为真实档位（Pro/Pro+/Business/…）才显示；
+        // individual 是账户类型不是档位 → 不显示（可信才挂胶囊）。
+        let plan = PlanTier.copilot(root["copilot_plan"] as? String)
         let reset = self.resetDate(root["quota_reset_date"])
         let snaps = root["quota_snapshots"] as? [String: Any]
 

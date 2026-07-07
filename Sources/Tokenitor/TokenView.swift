@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// 独立的「Token usage」页：顶部按工具给一排图标 Tab，任意时刻只显示一个工具的
-/// Tokenscope 风格卡片——hero 大数字 + 输入/输出分色条 + 周期柱状图 + 按模型拆分 +
-/// 成本环形图 + 请求/成本趋势迷你卡，Day/Week/Month 可切换。
+/// 「Token usage」页：任意时刻只显示一个工具的卡片（工具切换在边栏「Token」子项）。
+/// 卡片结构（v1.4 重构）：标题胶囊行 → KPI 三卡（成本优先）→ 分组趋势图 → 模型合并表 → 缓存节省。
 struct TokenView: View {
     @ObservedObject var store: UsageStore
     var inPopover: Bool = false   // 主窗口头部由自绘 header 提供（见 DashboardView.mainHeaderRow），弹层才画自己的头
@@ -32,10 +31,10 @@ struct TokenView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 8)
             } else if let stat = store.tokenStats.first(where: { $0.tool == resolvedSelected }) {
-                // 工具切换在边栏「Token」下的子项里（不再占本页顶部）
-                TokenStatCard(stat: stat, updatedAt: store.tokensUpdate)   // 「更新于」在卡片标题下
+                TokenStatCard(stat: stat,
+                              plan: store.snapshots.first(where: { $0.name == stat.tool })?.plan,
+                              updatedAt: store.tokensUpdate)
             }
-            // 成本估算 / Claude 无本地数据等说明已移到「说明」子页（点头部 ? 进入），不再挤占本页。
         }
     }
 }
@@ -75,10 +74,11 @@ struct TokenInfoView: View {
     }
 }
 
-/// 单个工具的 Tokenscope 风格卡片，内部维护自己的 Day/Week/Month 选择。
+/// 单个工具的卡片：成本叙事优先、一个维度只出现一次、颜色只编码一种含义。
 private struct TokenStatCard: View {
     let stat: TokenStat
-    var updatedAt: Date? = nil   // 标题下方显示「更新于 N分钟前」
+    var plan: String? = nil        // 订阅档位（可信才有值；nil 不显示胶囊）
+    var updatedAt: Date? = nil
     @State private var period: TokenPeriod = .week
 
     private var report: PeriodReport {
@@ -90,100 +90,241 @@ private struct TokenStatCard: View {
     }
 
     var body: some View {
+        // 一个容器、三个区段：KPI｜趋势｜按模型，区段间只用淡色分割线（不再各自加灰底块）。
         VStack(alignment: .leading, spacing: 12) {
             header
-            hero
-            splitBar
-            TokenBarChart(data: report.series)
-
+            kpiRow
             Divider().opacity(0.4)
-            modelsSection
-
-            if !report.models.isEmpty {
-                Divider().opacity(0.4)
-                costSection
-            }
-
+            trendSection
             Divider().opacity(0.4)
-            footerStats
+            modelTable
+            savingsLine
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(cornerRadius: 16)
     }
 
-    // MARK: - 卡片头 / hero / 分色条
+    // MARK: - 标题行：工具名 + 档位/更新时间胶囊 + 周期切换
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stat.tool).font(.sectionTitle)
-                if let t = updatedAt {
-                    Text(L("更新于 ", "Updated ") + formatUpdatedAgo(t))
-                        .font(.uiCaption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Picker(L("周期", "Period"), selection: $period) {
-                Text("Day").tag(TokenPeriod.day)
-                Text("Week").tag(TokenPeriod.week)
-                Text("Month").tag(TokenPeriod.month)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+        HStack(spacing: 8) {
+            Text(stat.tool).font(.sectionTitle)
+            if let plan, !plan.isEmpty { chip(plan) }
+            if let t = updatedAt { chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t)) }
+            Spacer(minLength: 8)
+            PeriodSegmented(period: $period)
+        }
+    }
+
+    private func chip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10.5, weight: .medium))
+            .lineLimit(1)
             .fixedSize()
-        }
-    }
-
-    private var hero: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("TOTAL TOKENS").font(.uiLabel).foregroundStyle(.secondary)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(formatTokens(report.totalTokens))
-                        .font(.numHero)
-                    if abs(report.deltaTokens) >= 1 { DeltaBadge(value: report.deltaTokens) }
-                }
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("EST. COST").font(.uiLabel).foregroundStyle(.secondary)
-                Text(formatUSDExact(report.cost))
-                    .font(.numTitle)
-                    .foregroundStyle(Color.accentColor)
-            }
-        }
-    }
-
-    private var splitBar: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            GeometryReader { geo in
-                let denom = max(report.totalTokens, 1)
-                let inputFrac = CGFloat(report.inputTokens + report.cacheTokens) / CGFloat(denom)
-                HStack(spacing: 0) {
-                    Rectangle().fill(Color.accentColor)
-                        .frame(width: report.totalTokens > 0 ? max(geo.size.width * inputFrac, 3) : 0)
-                    Rectangle().fill(Color.accentColor.opacity(0.55))
-                }
-            }
-            .frame(height: 7)
-            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.primary.opacity(0.06)))
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-
-            HStack(spacing: 14) {
-                HStack(spacing: 4) {
-                    Circle().fill(Color.accentColor).frame(width: 6, height: 6)
-                    Text("Input \(fmtM(report.inputTokens + report.cacheTokens))")
-                }
-                HStack(spacing: 4) {
-                    Circle().fill(Color.accentColor.opacity(0.55)).frame(width: 6, height: 6)
-                    Text("Output \(fmtM(report.outputTokens))")
-                }
-                Text("\(cachedPct)% cached").foregroundStyle(.tertiary)
-            }
-            .font(.num)
             .foregroundStyle(.secondary)
+            .padding(.horizontal, 7).padding(.vertical, 1.5)
+            .background(Capsule().fill(Color.primary.opacity(0.06)))
+    }
+
+    // MARK: - KPI 分栏（Apple 式统计行：三列等宽、无各自底色、竖向淡分割线，模板严格对齐）
+
+    private var kpiRow: some View {
+        HStack(alignment: .top, spacing: 0) {
+            kpiColumn(label: L("预估成本", "Est. cost"),
+                      value: formatUSDExact(report.cost),
+                      accent: true,
+                      delta: report.hasPrior ? report.deltaCost : nil,
+                      subLines: costSubLines)
+            kpiDivider
+            kpiColumn(label: "Tokens",
+                      value: formatTokens(report.totalTokens),
+                      subLines: [
+                        L("输入 \(fmtShort(report.inputTokens)) · 输出 \(fmtShort(report.outputTokens))",
+                          "In \(fmtShort(report.inputTokens)) · Out \(fmtShort(report.outputTokens))"),
+                        L("缓存 \(fmtShort(report.cacheTokens))（\(cachedPct)%）",
+                          "Cache \(fmtShort(report.cacheTokens)) (\(cachedPct)%)"),
+                      ])
+            kpiDivider
+            kpiColumn(label: L("请求", "Requests"),
+                      value: formatInt(report.requests),
+                      subLines: requestsSubLines)
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var kpiDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(width: 1)
+            .padding(.vertical, 3)
+    }
+
+    private var costSubLines: [String] {
+        if report.hasPrior {
+            return [L("较\(prevPeriodName)", "vs \(prevPeriodEN)")]
+        }
+        return [L("较\(prevPeriodName) —", "vs \(prevPeriodEN) —"),
+                L("（历史不足）", "(no history)")]
+    }
+
+    private var requestsSubLines: [String] {
+        var lines = [L("\(report.sessions) 会话", "\(report.sessions) sessions")]
+        if period != .day, report.cost > 0 {
+            let days = period == .week ? 7.0 : 30.0
+            lines.append(L("日均 \(formatUSD(report.cost / days))", "\(formatUSD(report.cost / days))/day"))
+        }
+        return lines
+    }
+
+    private var prevPeriodName: String {
+        switch period { case .day: return "昨日"; case .week: return "上周"; case .month: return "上月" }
+    }
+    private var prevPeriodEN: String {
+        switch period { case .day: return "yesterday"; case .week: return "last week"; case .month: return "last month" }
+    }
+
+    /// 副文案用一位小数的短格式，保证两行内放得下、不出现「…」截断。
+    private func fmtShort(_ n: Int) -> String {
+        let d = Double(n)
+        if d >= 1_000_000 { return String(format: "%.1fM", d / 1_000_000) }
+        if d >= 1_000 { return String(format: "%.0fK", d / 1_000) }
+        return "\(n)"
+    }
+
+    /// 等宽列：标签 / 数值行 / 固定两行高的副文案区——三列高度与基线严格一致。
+    private func kpiColumn(label: String, value: String, accent: Bool = false,
+                           delta: Double? = nil, subLines: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.uiMicro).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(value)
+                    .font(.numTitle)
+                    .foregroundStyle(accent ? Color.accentColor : Color.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if let delta, abs(delta) >= 1 { DeltaBadge(value: delta) }
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(subLines, id: \.self) { line in
+                    Text(line).font(.numMicro).foregroundStyle(.tertiary).lineLimit(1)
+                }
+            }
+            .frame(height: 24, alignment: .topLeading)   // 固定副文案区高：列高恒等
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - 趋势：分组三柱（输入/缓存/输出），今天高亮
+
+    private var trendSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L("趋势", "Trend")).font(.uiLabel).foregroundStyle(.secondary)
+                Spacer()
+                legendDot(GroupedTokenChart.inputColor, L("输入", "In"))
+                legendDot(GroupedTokenChart.cacheColor, L("缓存", "Cache"))
+                legendDot(GroupedTokenChart.outputColor, L("输出", "Out"))
+            }
+            GroupedTokenChart(data: report.series, highlightIndex: highlightIndex)
+        }
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous).fill(color).frame(width: 7, height: 7)
+            Text(label).font(.numMicro).foregroundStyle(.secondary)
+        }
+        .padding(.leading, 6)
+    }
+
+    /// 周/月视图高亮最后一组（今天/本周）；日视图高亮当前所在的小时段。
+    private var highlightIndex: Int? {
+        guard !report.series.isEmpty else { return nil }
+        if period == .day {
+            let bucket = Calendar.current.component(.hour, from: Date()) / 4
+            return min(bucket, report.series.count - 1)
+        }
+        return report.series.count - 1
+    }
+
+    // MARK: - 按模型（tokens 与成本合并成一张表）
+
+    private var modelTable: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(L("按模型", "By model")).font(.uiLabel).foregroundStyle(.secondary)
+            if report.models.isEmpty {
+                Text(L("本周期无数据", "No data in this period")).font(.num).foregroundStyle(.tertiary).padding(.vertical, 2)
+            } else {
+                let maxV = max(report.models.map { $0.counts.total }.max() ?? 1, 1)
+                ForEach(Array(report.models.enumerated()), id: \.offset) { i, m in
+                    modelRow(m, max: maxV, color: Self.rankColor(i))
+                }
+                unpricedNote
+            }
+        }
+    }
+
+    private func modelRow(_ m: ModelTokens, max maxV: Int, color: Color) -> some View {
+        HStack(spacing: 9) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous).fill(color).frame(width: 7, height: 7)
+            Text(m.model)
+                .font(.uiCaption)
+                .lineLimit(1)
+                .frame(width: 104, alignment: .leading)
+            GeometryReader { geo in
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color.primary.opacity(0.08))
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(color)
+                            .frame(width: geo.size.width * CGFloat(m.counts.total) / CGFloat(maxV))
+                    }
+            }
+            .frame(height: 5)
+            Text(formatTokens(m.counts.total))
+                .font(.num)
+                .foregroundStyle(.secondary)
+                .frame(width: 46, alignment: .trailing)
+            Text(formatUSD(m.cost))
+                .font(.num)
+                .frame(width: 52, alignment: .trailing)
+        }
+        .help("\(m.model) · \(formatTokens(m.counts.total)) tokens · \(formatUSDExact(m.cost))")
+    }
+
+    @ViewBuilder
+    private var unpricedNote: some View {
+        let unpriced = report.models.filter { $0.cost <= 0 }
+        if !unpriced.isEmpty {
+            Text(L("\(unpriced.count) 个模型没有定价数据（成本未计入）：\(unpriced.map(\.model).joined(separator: ", "))",
+                   "\(unpriced.count) model(s) without pricing (cost excluded): \(unpriced.map(\.model).joined(separator: ", "))"))
+                .font(.numMicro)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// 模型排名色：与趋势图同一蓝系（颜色只编码「token 量」这一种含义）。
+    private static let rankPalette = ["378ADD", "85B7EB", "2E6BC7", "B5D4F4", "6E96C4"]
+    private static func rankColor(_ i: Int) -> Color {
+        Color(hex: i < rankPalette.count ? rankPalette[i] : "8B94A3")
+    }
+
+    // MARK: - 缓存节省洞察条（这页最值钱的一行字）
+
+    @ViewBuilder
+    private var savingsLine: some View {
+        let savings = Pricing.cacheSavings(report.models)
+        if savings >= 0.01, report.totalTokens > 0 {
+            Text(L("缓存命中 \(cachedPct)% · \(periodName)约节省 \(formatUSD(savings))（按缓存读与全价输入的价差估算）",
+                   "Cache hit \(cachedPct)% · saved ~\(formatUSD(savings)) \(periodEN) (cache-read vs full-price input)"))
+                .font(.uiCaption)
+                .foregroundStyle(GaugeColor.healthy)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(GaugeColor.healthy.opacity(0.1)))
         }
     }
 
@@ -191,134 +332,10 @@ private struct TokenStatCard: View {
         guard report.totalTokens > 0 else { return 0 }
         return Int((Double(report.cacheTokens) / Double(report.totalTokens) * 100).rounded())
     }
-    private func fmtM(_ n: Int) -> String { String(format: "%.2fM", Double(n) / 1_000_000) }
-
-    // MARK: - Tokens by model
-
-    private var modelsSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("TOKENS BY MODEL").font(.uiLabel).foregroundStyle(.secondary)
-            if report.models.isEmpty {
-                Text(L("本周期无数据", "No data in this period")).font(.num).foregroundStyle(.tertiary).padding(.vertical, 2)
-            } else {
-                let maxV = max(report.models.map { $0.counts.total }.max() ?? 1, 1)
-                let shares = Self.sharePercents(report.models.map { $0.counts.total })
-                ForEach(Array(report.models.enumerated()), id: \.offset) { i, m in
-                    modelRow(m, max: maxV, share: shares[i], color: Self.rankColor(i))
-                }
-            }
-        }
+    private var periodName: String {
+        switch period { case .day: return "今日"; case .week: return "本周"; case .month: return "本月" }
     }
-
-    private func modelRow(_ m: ModelTokens, max: Int, share: Double, color: Color) -> some View {
-        HStack(spacing: 9) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous).fill(color).frame(width: 7, height: 7)
-            Text(m.model)
-                .font(.uiCaption)
-                .lineLimit(1)
-                .frame(width: 100, alignment: .leading)
-            GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Color.primary.opacity(0.08))
-                    .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(color)
-                            .frame(width: geo.size.width * CGFloat(m.counts.total) / CGFloat(max))
-                    }
-            }
-            .frame(height: 5)
-            Text(formatTokens(m.counts.total))
-                .font(.num)
-                .foregroundStyle(.secondary)
-                .frame(width: 42, alignment: .trailing)
-            Text(Self.shareStr(share))
-                .font(.num)
-                .frame(width: 36, alignment: .trailing)
-        }
-    }
-
-    // MARK: - Cost by model
-
-    private var costSection: some View {
-        let costModels = report.models.filter { $0.cost > 0 }
-        let unpriced = report.models.filter { $0.cost <= 0 }
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("COST BY MODEL").font(.uiLabel).foregroundStyle(.secondary)
-            if costModels.isEmpty {
-                Text("—").font(.num).foregroundStyle(.tertiary)
-            } else {
-                CostDonutChart(models: costModels, size: 100, thickness: 15)
-            }
-            if !unpriced.isEmpty {
-                Text(L("\(unpriced.count) 个模型没有定价数据（成本未计入）：\(unpriced.map(\.model).joined(separator: ", "))", "\(unpriced.count) model(s) without pricing (cost excluded): \(unpriced.map(\.model).joined(separator: ", "))"))
-                    .font(.numMicro)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    // MARK: - Requests / Cost trend
-
-    private var footerStats: some View {
-        HStack(spacing: 8) {
-            miniStat(label: "REQUESTS", value: formatInt(report.requests),
-                     sub: "\(report.sessions) sessions", trend: report.reqTrend)
-            miniStat(label: "COST TREND", value: formatUSDExact(report.cost),
-                     sub: periodSubLabel, trend: report.costTrend, accent: true)
-        }
-    }
-
-    private var periodSubLabel: String {
-        switch period {
-        case .day: return "today"
-        case .week: return "this week"
-        case .month: return "this month"
-        }
-    }
-
-    private func miniStat(label: String, value: String, sub: String, trend: [Double], accent: Bool = false) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(label).font(.uiMicro).foregroundStyle(.secondary)
-                Text(value).font(.numTitle)
-                    .foregroundStyle(accent ? Color.accentColor : Color.primary)
-                Text(sub).font(.numMicro).foregroundStyle(.tertiary)
-            }
-            Spacer()
-            TokenSparkline(values: trend.isEmpty ? [0, 0] : trend)
-        }
-        .padding(9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.05)))
-    }
-
-    // MARK: - 排名取色 / 份额计算（与 Tokenscope 的 DONUT_PALETTE / sharePcts 对齐）
-
-    private static let rankPalette = ["1f9d63", "34c27e", "6ad0a0", "a7e3c5", "4b5a52"]
-
-    private static func rankColor(_ i: Int) -> Color {
-        Color(hex: i < rankPalette.count ? rankPalette[i] : "79817b")
-    }
-
-    /// 每个值的份额按 1 位小数用最大余数法分配，使总和精确等于 100.0%。
-    private static func sharePercents(_ values: [Int]) -> [Double] {
-        let total = values.reduce(0, +)
-        guard total > 0 else { return values.map { _ in 0 } }
-        let units = 1000.0
-        let raw = values.map { Double($0) / Double(total) * units }
-        var floors = raw.map { $0.rounded(.down) }
-        var left = Int((units - floors.reduce(0, +)).rounded())
-        let order = raw.indices.sorted { (raw[$0] - floors[$0]) > (raw[$1] - floors[$1]) }
-        for i in order {
-            guard left > 0 else { break }
-            floors[i] += 1
-            left -= 1
-        }
-        return floors.map { $0 / 10 }
-    }
-
-    private static func shareStr(_ v: Double) -> String {
-        v.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(v))%" : String(format: "%.1f%%", v)
+    private var periodEN: String {
+        switch period { case .day: return "today"; case .week: return "this week"; case .month: return "this month" }
     }
 }
