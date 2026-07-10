@@ -180,6 +180,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.1", L("三端胶囊统一（弹层/刘海同仪表）· 弹层功能区原生菜单化", "Unified chips across all surfaces · native-menu popover actions")),
         ("1.4.0", L("Token 页重构：成本优先 KPI · 分组趋势图 · 模型合并表 · 订阅档位胶囊", "Token page redesign: cost-first KPIs · grouped trend · merged model table · plan chips")),
         ("1.3.1", L("Token 聚合增量解析：消除周期性内存峰值与 CPU 尖刺", "Incremental token parsing: no more periodic memory/CPU spikes")),
         ("1.3.0", L("英文界面（全量文案，默认跟随系统语言）", "Full English localization (follows system language by default)")),
@@ -370,30 +371,58 @@ struct PopoverGlanceView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                glanceButton("chart.bar.xaxis", L("Token 用量", "Token Usage")) { store.onOpenWindow(.tokens) }
-                glanceButton("gearshape", L("设置", "Settings")) { store.onOpenWindow(.settings) }
-                glanceButton("arrow.clockwise", L("刷新", "Refresh")) { store.onRefresh() }
             }
             if store.snapshots.isEmpty {
                 Text(L("正在获取用量…", "Fetching usage…")).font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
-                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt)
+                    AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt,
+                                   serviceIndicator: store.serviceStatus[snap.name])
                 }
+            }
+
+            // 功能区：原生菜单样式（文字行 + 右侧快捷键 + 分隔线 + 悬停高亮），替代此前的图标按钮
+            VStack(alignment: .leading, spacing: 1) {
+                Divider().opacity(0.4).padding(.vertical, 3)
+                MenuRow(title: L("Token 用量", "Token Usage")) { store.onOpenWindow(.tokens) }
+                MenuRow(title: L("设置…", "Settings…"), shortcut: "⌘,") { store.onOpenWindow(.settings) }
+                MenuRow(title: L("刷新", "Refresh"), shortcut: "⌘R") { store.onRefresh() }
+                Divider().opacity(0.4).padding(.vertical, 3)
+                MenuRow(title: L("使用说明", "Guide")) { store.onShowHelp() }
+                MenuRow(title: L("退出 Tokenitor", "Quit Tokenitor"), shortcut: "⌘Q") { store.onQuit() }
             }
         }
         .padding(16)
         .frame(width: 380)
         .background(VisualEffectView(material: .popover, blending: .behindWindow).ignoresSafeArea())
     }
+}
 
-    private func glanceButton(_ icon: String, _ help: String, action: @escaping () -> Void) -> some View {
+/// 原生菜单样式的行（同 macOS 应用菜单：悬停整行强调色高亮、白字，右侧快捷键提示）。
+private struct MenuRow: View {
+    let title: String
+    var shortcut: String? = nil
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .regular))
-                .frame(width: 22, height: 22)
+            HStack {
+                Text(title).font(.uiBody)
+                Spacer()
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.uiCaption)
+                        .foregroundStyle(hovering ? Color.white.opacity(0.8) : Color.secondary)
+                }
+            }
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(hovering ? Color.accentColor : .clear))
+            .foregroundStyle(hovering ? Color.white : Color.primary)
         }
-        .buttonStyle(.borderless)
-        .help(help)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }

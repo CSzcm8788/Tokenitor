@@ -1,5 +1,63 @@
 import SwiftUI
 
+/// 三处界面（仪表 hero / 菜单栏弹层 / 刘海面板）**统一**的胶囊行：
+/// 状态（LIVE/缓存/离线）+ 来源（本地/未公开）+ 订阅档位 + 厂商服务状态。
+/// 同一份快照在任何界面长相一致；改胶囊只改这里。
+struct ProviderChipsRow: View {
+    let snap: ProviderSnapshot
+    var serviceIndicator: String? = nil
+    var compact: Bool = false
+
+    var body: some View {
+        HStack(spacing: compact ? 4 : 6) {
+            statusChip
+            if let kind = AIKind.from(name: snap.name) {
+                Self.chip(kind.sourceTag, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+            }
+            if let plan = snap.plan, !plan.isEmpty {
+                Self.chip(plan, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+            }
+            serviceChip
+        }
+    }
+
+    /// 状态胶囊：LIVE（实时）/ 缓存（限流等展示旧数据）/ 离线（读取失败）。
+    @ViewBuilder
+    private var statusChip: some View {
+        if snap.ok && !snap.isStale {
+            Self.chip("LIVE", fg: GaugeColor.healthy, bg: GaugeColor.healthy.opacity(0.16), compact: compact)
+        } else if snap.isStale {
+            Self.chip(L("缓存", "Cached"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16), compact: compact)
+        } else {
+            Self.chip(L("离线", "Offline"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14), compact: compact)
+        }
+    }
+
+    /// 厂商服务状态胶囊（来自各家公开 status page；正常时不显示）。
+    @ViewBuilder
+    private var serviceChip: some View {
+        switch serviceIndicator {
+        case "minor":
+            Self.chip(L("服务降级", "Degraded"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16), compact: compact)
+        case "major", "critical":
+            Self.chip(L("服务中断", "Outage"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14), compact: compact)
+        default:
+            EmptyView()
+        }
+    }
+
+    /// 胶囊本体（永不折行）；hero 的「更新于」胶囊也用它保持同款。
+    static func chip(_ text: String, fg: Color, bg: Color, compact: Bool = false) -> some View {
+        Text(text)
+            .font(.system(size: compact ? 9.5 : 10.5, weight: .medium))
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(fg)
+            .padding(.horizontal, compact ? 6 : 7).padding(.vertical, 1.5)
+            .background(Capsule().fill(bg))
+    }
+}
+
 /// 单个 AI 的玻璃卡片，三种形态：
 ///  · hero     —— 主窗口仪表页：标题 + 状态/来源/更新时间胶囊 + 大数字统计瓦片 + 用量条
 ///  · detailed —— 菜单栏弹层：标题 + 更新时间副标题 + 用量条（紧凑速览）
@@ -38,65 +96,27 @@ struct AIMonitorPanel: View {
 
     // MARK: - 头部
 
-    /// detailed / compact：纯标题（卡片下不挂小字，更新时间由面板级统一显示）。
+    /// detailed / compact：标题 + 统一胶囊行（与 hero 同源，三端显示一致）。
     private var plainHeader: some View {
-        Text(snap.name)
-            .font(compact ? .uiCaption : .sectionTitle)
+        HStack(spacing: compact ? 6 : 7) {
+            Text(snap.name)
+                .font(compact ? .uiCaption : .sectionTitle)
+            ProviderChipsRow(snap: snap, serviceIndicator: serviceIndicator, compact: compact)
+            Spacer(minLength: 0)
+        }
     }
 
-    /// hero：大标题 + 状态 / 来源 / 套餐 / 服务状态 / 更新时间胶囊行。
+    /// hero：大标题 + 统一胶囊行 + 更新时间胶囊。
     private var heroHeader: some View {
         HStack(spacing: 8) {
             Text(snap.name).font(.pageTitle)
-            statusChip
-            if let kind = AIKind.from(name: snap.name) {
-                chip(kind.sourceTag, fg: .secondary, bg: Color.primary.opacity(0.06))
-            }
-            if let plan = snap.plan, !plan.isEmpty {
-                chip(plan, fg: .secondary, bg: Color.primary.opacity(0.06))
-            }
-            serviceChip
+            ProviderChipsRow(snap: snap, serviceIndicator: serviceIndicator)
             Spacer(minLength: 0)
             if let t = updatedAt {
-                chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),
-                     fg: .secondary, bg: Color.primary.opacity(0.06))
+                ProviderChipsRow.chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),
+                                      fg: .secondary, bg: Color.primary.opacity(0.06))
             }
         }
-    }
-
-    /// 厂商服务状态胶囊（来自各家公开 status page；正常时不显示）。
-    @ViewBuilder
-    private var serviceChip: some View {
-        switch serviceIndicator {
-        case "minor":
-            chip(L("服务降级", "Degraded"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
-        case "major", "critical":
-            chip(L("服务中断", "Outage"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
-        default:
-            EmptyView()
-        }
-    }
-
-    /// 状态胶囊：LIVE（实时）/ 缓存（限流等展示旧数据）/ 离线（读取失败）。
-    @ViewBuilder
-    private var statusChip: some View {
-        if snap.ok && !snap.isStale {
-            chip("LIVE", fg: GaugeColor.healthy, bg: GaugeColor.healthy.opacity(0.16))
-        } else if snap.isStale {
-            chip(L("缓存", "Cached"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16))
-        } else {
-            chip(L("离线", "Offline"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14))
-        }
-    }
-
-    private func chip(_ text: String, fg: Color, bg: Color) -> some View {
-        Text(text)
-            .font(.system(size: 10.5, weight: .medium))
-            .lineLimit(1)
-            .fixedSize()          // 胶囊永不折行（窄卡片上「更新于 …」曾被折成两行）
-            .foregroundStyle(fg)
-            .padding(.horizontal, 7).padding(.vertical, 1.5)
-            .background(Capsule().fill(bg))
     }
 
     // MARK: - 用量条

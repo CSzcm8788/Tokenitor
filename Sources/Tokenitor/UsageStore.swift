@@ -30,6 +30,7 @@ final class UsageStore: ObservableObject {
     var onSettingsChanged: () -> Void = {}
     var onReloginClaude: () -> Void = {}
     var onLoginCopilot: () -> Void = {}   // Copilot device flow 授权
+    var onQuit: () -> Void = {}           // 弹层菜单「退出」
     // 弹窗（速览）里点 Token/设置 → 打开完整主窗口并跳到该页
     var onOpenWindow: (AppPage) -> Void = { _ in }
     // 窗口自适应：内容高度变化时回调，AppDelegate 据此调整窗口高度

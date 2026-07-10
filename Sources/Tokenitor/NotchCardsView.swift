@@ -41,8 +41,12 @@ struct NotchCardsView: View {
     private func providerBlock(_ snap: ProviderSnapshot) -> some View {
         let warn = Settings.shared.warnAt, crit = Settings.shared.critAt
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Text(snap.name).font(.uiCaption)
+                // 与仪表 / 弹层统一的胶囊行（状态 / 来源 / 档位 / 服务状态）
+                ProviderChipsRow(snap: snap,
+                                 serviceIndicator: store.serviceStatus[snap.name],
+                                 compact: true)
                 Spacer()
             }
             if snap.ok {

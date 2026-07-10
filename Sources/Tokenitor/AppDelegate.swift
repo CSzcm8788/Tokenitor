@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onSettingsChanged = { [weak self] in self?.settingsChanged() }
         store.onReloginClaude = { [weak self] in self?.reloginClaude() }
         store.onLoginCopilot = { [weak self] in self?.loginCopilot() }
+        store.onQuit = { NSApp.terminate(nil) }
         store.onMainHeight = { [weak self] h in self?.fitMainWindow(contentHeight: h) }   // 自动贴合（用户拖动后失效）
         store.onOpenWindow = { [weak self] page in                                        // 弹窗速览 → 打开完整窗口跳到该页
             guard let self else { return }
