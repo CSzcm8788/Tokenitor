@@ -36,26 +36,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusController() // 同时保留菜单栏图标
     }
 
-    /// 普通应用需要主菜单，否则 Cmd+Q / Cmd+H 等不工作。
+    /// 标准主菜单（HIG）：app 菜单只放应用级条目；动作在「视图」，标准键位在「窗口」，
+    /// 说明与更新入口在「帮助」（系统自动附带菜单项搜索）。
     private func setupMainMenu() {
         let mainMenu = NSMenu()
-        let appItem = NSMenuItem()
-        mainMenu.addItem(appItem)
-        let appMenu = NSMenu()
         let name = "Tokenitor"
+
+        // ── App 菜单：关于 / 设置 / 服务 / 隐藏 / 退出
+        let appItem = NSMenuItem(); mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
         appMenu.addItem(withTitle: L("关于 \(name)", "About \(name)"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        appMenu.addItem(withTitle: L("使用说明", "Guide"), action: #selector(showHelp), keyEquivalent: "?").target = self
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: L("设置…", "Settings…"), action: #selector(showSettings), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
+        let servicesItem = appMenu.addItem(withTitle: L("服务", "Services"), action: nil, keyEquivalent: "")
+        let servicesMenu = NSMenu(); servicesItem.submenu = servicesMenu
+        NSApp.servicesMenu = servicesMenu
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: L("隐藏 \(name)", "Hide \(name)"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        appMenu.addItem(withTitle: L("刷新", "Refresh"), action: #selector(menuRefresh), keyEquivalent: "r").target = self
+        let hideOthers = appMenu.addItem(withTitle: L("隐藏其他", "Hide Others"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: L("显示全部", "Show All"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: L("退出 \(name)", "Quit \(name)"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
+
+        // ── 视图：页面导航（⌘1/⌘2）+ 刷新（⌘R，从 app 菜单移入）
+        let viewItem = NSMenuItem(); mainMenu.addItem(viewItem)
+        let viewMenu = NSMenu(title: L("视图", "View"))
+        viewMenu.addItem(withTitle: L("仪表", "Dashboard"), action: #selector(showUsagePage), keyEquivalent: "1").target = self
+        viewMenu.addItem(withTitle: L("Token 用量", "Token Usage"), action: #selector(showTokensPage), keyEquivalent: "2").target = self
+        viewMenu.addItem(.separator())
+        viewMenu.addItem(withTitle: L("刷新", "Refresh"), action: #selector(menuRefresh), keyEquivalent: "r").target = self
+        viewItem.submenu = viewMenu
+
+        // ── 窗口：让 ⌘M / ⌘W 标准键位生效；系统会自动把窗口列表挂进来
+        let windowItem = NSMenuItem(); mainMenu.addItem(windowItem)
+        let windowMenu = NSMenu(title: L("窗口", "Window"))
+        windowMenu.addItem(withTitle: L("最小化", "Minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: L("缩放", "Zoom"), action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(withTitle: L("关闭窗口", "Close Window"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: L("前置全部窗口", "Bring All to Front"), action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        windowItem.submenu = windowMenu
+        NSApp.windowsMenu = windowMenu
+
+        // ── 帮助：使用说明（原 app 菜单移入）+ GitHub + 检查更新（打开 Releases，零依赖）
+        let helpItem = NSMenuItem(); mainMenu.addItem(helpItem)
+        let helpMenu = NSMenu(title: L("帮助", "Help"))
+        helpMenu.addItem(withTitle: L("Tokenitor 使用说明", "Tokenitor Guide"), action: #selector(showHelp), keyEquivalent: "?").target = self
+        helpMenu.addItem(.separator())
+        helpMenu.addItem(withTitle: L("GitHub 项目主页", "GitHub Project"), action: #selector(openGitHub), keyEquivalent: "").target = self
+        helpMenu.addItem(withTitle: L("检查更新…", "Check for Updates…"), action: #selector(checkUpdates), keyEquivalent: "").target = self
+        helpItem.submenu = helpMenu
+        NSApp.helpMenu = helpMenu
+
         NSApp.mainMenu = mainMenu
     }
 
     @objc private func menuRefresh() { refresh() }
+    @objc private func showUsagePage() { store.page = .usage; showWindow() }
+    @objc private func showTokensPage() { store.page = .tokens; showWindow() }
+    @objc private func openGitHub() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/CSzcm8788/Tokenitor")!)
+    }
+    @objc private func checkUpdates() {
+        NSWorkspace.shared.open(URL(string: "https://github.com/CSzcm8788/Tokenitor/releases/latest")!)
+    }
 
     /// 一键重登 Claude：在 Terminal 里运行打包的脚本，完成订阅 /login 并清掉失效缓存。
     @objc private func reloginClaude() {
@@ -308,6 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 正在抓取时不并发；记一个挂起标记，本轮结束后自动再抓一次（确保新开启的 AI 立即出现）
         if isFetching { pendingRefresh = true; return }
         isFetching = true
+        store.isRefreshing = true   // 工具栏刷新按钮转圈
         pendingRefresh = false
         fetchGeneration += 1
         let gen = fetchGeneration
@@ -366,6 +414,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 收尾：解除抓取锁；若期间有挂起的刷新请求，立刻再抓一次。
     private func finishFetch() {
         isFetching = false
+        store.isRefreshing = false
         if pendingRefresh {
             pendingRefresh = false
             refresh()

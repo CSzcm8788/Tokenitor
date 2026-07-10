@@ -9,6 +9,7 @@ final class UsageStore: ObservableObject {
     @Published var snapshots: [ProviderSnapshot] = []
     @Published var lastUpdate: Date? = nil
     @Published var page: AppPage = .usage    // 主窗口内页面切换
+    @Published var isRefreshing = false       // 正在抓取（工具栏刷新按钮显示转圈）
 
     // Token 页数据
     @Published var tokenStats: [TokenStat] = []

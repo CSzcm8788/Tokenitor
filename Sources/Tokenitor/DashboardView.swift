@@ -17,6 +17,21 @@ struct DashboardView: View {
                 //（修复卡片盖住标题/按钮的错乱），又保留动态玻璃的通透感。
                 .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
                 .toolbarBackground(.visible, for: .windowToolbar)
+                .toolbar {
+                    // 刷新的标准归宿：窗口工具栏右上角（Mail/App Store 同款）；
+                    // 进行中显示原生小菊花——用户第一次能「看到」正在刷新。
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { store.onRefresh() } label: {
+                            if store.isRefreshing {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
+                        .help(L("刷新（⌘R）", "Refresh (⌘R)"))
+                        .disabled(store.isRefreshing)
+                    }
+                }
                 .background(VisualEffectView(material: .popover, blending: .behindWindow).ignoresSafeArea())
         }
     }
@@ -142,14 +157,6 @@ struct DashboardView: View {
                                        serviceIndicator: store.serviceStatus[snap.name])
                     }
                 }
-                HStack {
-                    Spacer()
-                    Button { store.onRefresh() } label: {
-                        Image(systemName: "arrow.clockwise").font(.system(size: 13))
-                    }
-                    .buttonStyle(.borderless)
-                    .help(L("刷新", "Refresh"))
-                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -180,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.2", L("标准菜单四件套（视图⌘1⌘2/窗口⌘M⌘W/帮助）· 工具栏刷新带进行中状态", "Standard menus (View/Window/Help) · toolbar refresh with spinner")),
         ("1.4.1", L("三端胶囊统一（弹层/刘海同仪表）· 弹层功能区原生菜单化", "Unified chips across all surfaces · native-menu popover actions")),
         ("1.4.0", L("Token 页重构：成本优先 KPI · 分组趋势图 · 模型合并表 · 订阅档位胶囊", "Token page redesign: cost-first KPIs · grouped trend · merged model table · plan chips")),
         ("1.3.1", L("Token 聚合增量解析：消除周期性内存峰值与 CPU 尖刺", "Incremental token parsing: no more periodic memory/CPU spikes")),
