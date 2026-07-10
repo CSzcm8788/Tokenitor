@@ -15,8 +15,8 @@ final class UsageStore: ObservableObject {
     @Published var tokenStats: [TokenStat] = []
     @Published var tokensUpdate: Date? = nil
 
-    // 厂商服务状态（AI 名 → statuspage indicator），由 StatusMonitor 每 5 分钟更新
-    @Published var serviceStatus: [String: String] = [:]
+    // 厂商服务状态（AI 名 → 组件级结论），由 StatusMonitor 每 5 分钟更新
+    @Published var serviceStatus: [String: ServiceStatus] = [:]
 
     // Token 页当前查看的工具（边栏子项选择；nil = 第一个工具）
     @Published var tokenTool: String? = nil

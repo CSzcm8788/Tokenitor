@@ -267,6 +267,14 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 
 ## 更新日志
 
+### 1.4.3
+
+修复 Codex 经常性「服务降级」误报 + Codex 档位换更可靠的数据源（小版本）。
+
+- **服务状态改组件级判定**：此前读状态页**全站顶层指示器**——OpenAI 状态页有 30+ 组件（Sora / Ads / FedRAMP…），任何无关组件出事顶层就变 minor，导致 Codex 长期误挂「服务降级」（实测元凶是 FedRAMP 政府云组件）。现改读 `summary.json` 并只看**与该 AI 相关的组件**（Codex：Codex API / Codex in ChatGPT Desktop / VS Code extension / Responses；Claude：Claude Code / Claude API / claude.ai；Copilot：Copilot / Copilot AI Model Providers），取最差状态映射胶囊，**悬停显示具体出事组件**；新增 FedRAMP 误报回归测试。
+- **Codex 档位主源换新**：Codex 4 月新限额体系后，本地会话 `rate_limits` 新增 `plan_type` 字段（与实际配额同源、随会话实时更新）——档位胶囊改以它为主源、auth.json 的 JWT claim 降为兜底（后者可能陈旧，实测本机 JWT 说 free 而 plan_type 说 plus）。
+- 共 42 个单元测试。
+
 ### 1.4.2
 
 标准菜单 + 工具栏刷新（小版本）。

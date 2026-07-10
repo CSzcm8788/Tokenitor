@@ -63,14 +63,50 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(UsageWindow(usedPercent: -5, resetsAt: nil, label: "5h").remainingPercent, 100)
     }
 
-    // MARK: - 服务状态：取最严重指示级别
+    // MARK: - 服务状态：组件级判定
 
-    func testStatusMonitorWorst() {
+    func testComponentIndicatorMapping() {
+        XCTAssertNil(StatusMonitor.indicator(forComponentStatus: "operational"))
+        XCTAssertEqual(StatusMonitor.indicator(forComponentStatus: "degraded_performance"), "minor")
+        XCTAssertEqual(StatusMonitor.indicator(forComponentStatus: "under_maintenance"), "minor")
+        XCTAssertEqual(StatusMonitor.indicator(forComponentStatus: "partial_outage"), "major")
+        XCTAssertEqual(StatusMonitor.indicator(forComponentStatus: "major_outage"), "critical")
+        XCTAssertNil(StatusMonitor.indicator(forComponentStatus: "something_new"))
+    }
+
+    /// 回归用例：FedRAMP（无关组件）降级不得让 Codex 显示「服务降级」——这正是此前长期误报的元凶。
+    func testIrrelevantComponentDoesNotPolluteCodex() {
+        let comps = [("FedRAMP", "degraded_performance"),
+                     ("Codex API", "operational"),
+                     ("Responses", "operational"),
+                     ("Sites", "major_outage")]
+        XCTAssertNil(StatusMonitor.summarize(kind: .codex, components: comps))
+    }
+
+    func testRelevantComponentTriggersWithDetail() {
+        let comps = [("Codex API", "partial_outage"),
+                     ("Responses", "degraded_performance"),
+                     ("FedRAMP", "major_outage")]
+        let s = StatusMonitor.summarize(kind: .codex, components: comps)
+        XCTAssertEqual(s?.indicator, "major", "取相关组件里最差的级别")
+        XCTAssertTrue(s?.detail.contains("Codex API") == true)
+        XCTAssertFalse(s?.detail.contains("FedRAMP") == true, "无关组件不进明细")
+    }
+
+    func testCopilotAndClaudeRelevance() {
+        XCTAssertEqual(StatusMonitor.summarize(kind: .copilot,
+            components: [("Copilot AI Model Providers", "degraded_performance")])?.indicator, "minor")
+        XCTAssertEqual(StatusMonitor.summarize(kind: .claude,
+            components: [("Claude Code", "major_outage"), ("Claude Cowork", "major_outage")])?.detail
+            .contains("Cowork"), false, "Cowork 不在 Claude 相关组件里")
+    }
+
+    func testWorstAcrossProviders() {
         XCTAssertNil(StatusMonitor.worst(of: [:]))
-        XCTAssertNil(StatusMonitor.worst(of: ["Claude": "none", "Codex": "none"]))
-        XCTAssertEqual(StatusMonitor.worst(of: ["Claude": "none", "Codex": "minor"]), "minor")
-        XCTAssertEqual(StatusMonitor.worst(of: ["Claude": "critical", "Codex": "minor"]), "critical")
-        XCTAssertEqual(StatusMonitor.worst(of: ["Copilot": "major", "Codex": "minor"]), "major")
+        XCTAssertEqual(StatusMonitor.worst(of: [
+            "Codex": ServiceStatus(indicator: "minor", detail: "a"),
+            "Claude": ServiceStatus(indicator: "critical", detail: "b"),
+        ]), "critical")
     }
 
     // MARK: - 快照默认值（isStale 新字段不改变既有构造行为）

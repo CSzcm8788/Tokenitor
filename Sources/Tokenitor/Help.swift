@@ -36,7 +36,7 @@ struct HelpView: View {
                                 [(L("内部", "Internal"), .warn), (L("默认关", "Off by default"), .mut)],
                                 L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot`。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot`."))
                     note(L("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。", "Only tools you actually use (installed / signed in) are shown; the rest hide automatically."))
-                    note(L("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页（`status.claude.com` / `status.openai.com` / `githubstatus.com`），异常时卡片显示「服务降级 / 中断」胶囊、菜单栏图标加指示点。配额低 ≠ 服务挂了，两者互补。", "Service status monitor (can be disabled in Settings): polls each vendor\u{2019}s public status page every 5 minutes (`status.claude.com` / `status.openai.com` / `githubstatus.com`); on incidents the card shows a Degraded / Outage chip and the menu-bar icon gets an indicator dot."))
+                    note(L("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页，**组件级**判定——只看与该 AI 相关的组件（如 Codex API / Claude Code / Copilot），无关组件（如 FedRAMP）不会误报；异常时卡片显示「服务降级 / 中断」胶囊（悬停看具体组件）、菜单栏图标加指示点。", "Service status monitor (can be disabled in Settings): polls each vendor\u{2019}s public status page every 5 minutes at the **component level** — only components relevant to that AI (Codex API / Claude Code / Copilot) count, so unrelated ones (e.g. FedRAMP) can\u{2019}t cause false alarms; on incidents the card shows a Degraded / Outage chip (hover for details) and the menu-bar icon gets a dot."))
                     note(L("通知告警：某窗口剩余量跌破「低用量 / 紧急」阈值时各通知一次，回升后重置、可再次触发；限流时展示的缓存旧数据不触发告警。", "Alerts: one notification when a window drops below the low / critical threshold, re-armed after recovery; stale cached data never triggers alerts."))
                 }
 
@@ -46,7 +46,7 @@ struct HelpView: View {
                     bullet(L("**成本**：定价表（截至 \(Pricing.asOf)）估「等值花费」（非账单）；无定价显「—」、不计入。", "**Cost**: equivalent-spend estimate from the price table (as of \(Pricing.asOf)), not a bill; unpriced models show \u{201C}—\u{201D}."))
                     bullet(L("**Claude**：仅 Claude Code 终端写本地；Mac App / 网页不写，故此页无 Claude。", "**Claude**: only the Claude Code terminal writes local files; the Mac app / web do not, so no Claude here."))
                     bullet(L("**缓存节省**：绿色提示条按「缓存读 vs 全价输入」的价差估算省下的钱，只统计有定价的模型。", "**Cache savings**: the green line estimates money saved by cache reads vs full-price input, priced models only."))
-                    bullet(L("**订阅档位胶囊**：本地能读到且能对上真实档位名（Claude `subscriptionType`、Codex JWT claim、Copilot `copilot_plan`）才显示；账户类型（如 individual）或存疑值一律不显示。", "**Plan chips**: shown only when a locally readable value maps to a real tier (Claude `subscriptionType`, Codex JWT claim, Copilot `copilot_plan`); account types (e.g. individual) or dubious values are never shown."))
+                    bullet(L("**订阅档位胶囊**：本地能读到且能对上真实档位名（Claude `subscriptionType`、Codex 会话 `rate_limits.plan_type`（主源，JWT claim 兜底）、Copilot `copilot_plan`）才显示；账户类型（如 individual）或存疑值一律不显示。", "**Plan chips**: shown only when a locally readable value maps to a real tier (Claude `subscriptionType`, Codex session `rate_limits.plan_type` with JWT fallback, Copilot `copilot_plan`); account types (e.g. individual) or dubious values are never shown."))
                 }
 
                 // ③ 合规姿态。

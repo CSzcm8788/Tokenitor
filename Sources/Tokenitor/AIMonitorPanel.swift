@@ -5,7 +5,7 @@ import SwiftUI
 /// 同一份快照在任何界面长相一致；改胶囊只改这里。
 struct ProviderChipsRow: View {
     let snap: ProviderSnapshot
-    var serviceIndicator: String? = nil
+    var serviceStatus: ServiceStatus? = nil
     var compact: Bool = false
 
     var body: some View {
@@ -33,14 +33,16 @@ struct ProviderChipsRow: View {
         }
     }
 
-    /// 厂商服务状态胶囊（来自各家公开 status page；正常时不显示）。
+    /// 厂商服务状态胶囊（组件级结论；正常时不显示，悬停显示出事组件明细）。
     @ViewBuilder
     private var serviceChip: some View {
-        switch serviceIndicator {
+        switch serviceStatus?.indicator {
         case "minor":
             Self.chip(L("服务降级", "Degraded"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16), compact: compact)
+                .help(serviceStatus?.detail ?? "")
         case "major", "critical":
             Self.chip(L("服务中断", "Outage"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14), compact: compact)
+                .help(serviceStatus?.detail ?? "")
         default:
             EmptyView()
         }
@@ -71,8 +73,8 @@ struct AIMonitorPanel: View {
     var updatedAt: Date? = nil
     /// 主窗口仪表页的大卡片形态（统计瓦片 + 胶囊行）。
     var hero: Bool = false
-    /// 厂商服务状态（statuspage indicator：minor/major/critical），hero 显示为胶囊。
-    var serviceIndicator: String? = nil
+    /// 厂商服务状态（组件级结论），胶囊 + 悬停明细。
+    var serviceStatus: ServiceStatus? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : (hero ? 12 : 10)) {
@@ -101,7 +103,7 @@ struct AIMonitorPanel: View {
         HStack(spacing: compact ? 6 : 7) {
             Text(snap.name)
                 .font(compact ? .uiCaption : .sectionTitle)
-            ProviderChipsRow(snap: snap, serviceIndicator: serviceIndicator, compact: compact)
+            ProviderChipsRow(snap: snap, serviceStatus: serviceStatus, compact: compact)
             Spacer(minLength: 0)
         }
     }
@@ -110,7 +112,7 @@ struct AIMonitorPanel: View {
     private var heroHeader: some View {
         HStack(spacing: 8) {
             Text(snap.name).font(.pageTitle)
-            ProviderChipsRow(snap: snap, serviceIndicator: serviceIndicator)
+            ProviderChipsRow(snap: snap, serviceStatus: serviceStatus)
             Spacer(minLength: 0)
             if let t = updatedAt {
                 ProviderChipsRow.chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),

@@ -36,8 +36,12 @@ final class CodexProvider: UsageProvider {
             if let rl = lastRateLimits(in: text) {
                 let windows = parse(rl)
                 if !windows.isEmpty {
+                    // 档位主源：新版 Codex 会话的 rate_limits.plan_type（本地、实时、与实际配额同源）；
+                    // 读不到再退回 auth.json 的 JWT claim（可能陈旧）。
+                    let plan = PlanTier.codex(rl["plan_type"] as? String)
+                        ?? PlanTier.codexPlanFromAuthFile()
                     return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil,
-                                            plan: PlanTier.codexPlanFromAuthFile())
+                                            plan: plan)
                 }
             }
         }

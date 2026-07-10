@@ -154,7 +154,7 @@ struct DashboardView: View {
                                        critAt: Settings.shared.critAt,
                                        updatedAt: store.lastUpdate,
                                        hero: true,   // 主窗口用 hero 卡：胶囊行 + 统计瓦片 + 用量条
-                                       serviceIndicator: store.serviceStatus[snap.name])
+                                       serviceStatus: store.serviceStatus[snap.name])
                     }
                 }
             }
@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.3", L("服务状态改组件级：无关组件不再误报「服务降级」· Codex 档位读本地 plan_type", "Component-level status (no more false degraded) · Codex plan from local plan_type")),
         ("1.4.2", L("标准菜单四件套（视图⌘1⌘2/窗口⌘M⌘W/帮助）· 工具栏刷新带进行中状态", "Standard menus (View/Window/Help) · toolbar refresh with spinner")),
         ("1.4.1", L("三端胶囊统一（弹层/刘海同仪表）· 弹层功能区原生菜单化", "Unified chips across all surfaces · native-menu popover actions")),
         ("1.4.0", L("Token 页重构：成本优先 KPI · 分组趋势图 · 模型合并表 · 订阅档位胶囊", "Token page redesign: cost-first KPIs · grouped trend · merged model table · plan chips")),
@@ -385,7 +386,7 @@ struct PopoverGlanceView: View {
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
                     AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt,
-                                   serviceIndicator: store.serviceStatus[snap.name])
+                                   serviceStatus: store.serviceStatus[snap.name])
                 }
             }
 

@@ -45,7 +45,7 @@ struct NotchCardsView: View {
                 Text(snap.name).font(.uiCaption)
                 // 与仪表 / 弹层统一的胶囊行（状态 / 来源 / 档位 / 服务状态）
                 ProviderChipsRow(snap: snap,
-                                 serviceIndicator: store.serviceStatus[snap.name],
+                                 serviceStatus: store.serviceStatus[snap.name],
                                  compact: true)
                 Spacer()
             }
