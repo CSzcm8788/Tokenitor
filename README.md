@@ -267,6 +267,12 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 
 ## 更新日志
 
+### 1.4.4
+
+修复频繁弹「允许访问钥匙串」（紧急小版本）。
+
+- 每 60 秒刷新时，Copilot 的自有 token 条目、以及读 Claude Code 的凭证条目都会重新 `SecItemCopyMatching`——ad-hoc 开发签名下 ACL 每次重装失效，导致反复弹授权框。给这两处补上**进程内读缓存**（自有条目写入即更新、别家条目在 forceRefresh 疑似过期时才失效重读），稳态不再重复访问钥匙串。正式 Developer ID 公证版签名稳定，首次点一次「允许」后本就不再弹。
+
 ### 1.4.3
 
 修复 Codex 经常性「服务降级」误报 + Codex 档位换更可靠的数据源（小版本）。

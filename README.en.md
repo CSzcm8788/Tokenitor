@@ -44,6 +44,10 @@ bash install.sh          # build + install to /Applications + launch
 
 Uninstall: `bash uninstall.sh`. Build only: `bash build.sh && open dist/Tokenitor.app`. First launch may be blocked by Gatekeeper — right-click → Open.
 
+### 1.4.4
+
+Fix for repeated "Tokenitor wants to use the Keychain" prompts: each 60-second refresh re-read Copilot's own token item and Claude Code's credential items via `SecItemCopyMatching`. Under ad-hoc dev signing the item ACL is invalidated on every reinstall, so the prompt kept reappearing. Both reads now use an in-process cache (own item updated on write; others invalidated only on force-refresh), so the steady state no longer touches the Keychain. The notarized Developer ID build has a stable signature and prompts only once anyway.
+
 Run the unit tests with `swift test` (redaction, tolerant JSON parsing, formatting, pricing); CI runs build + tests on every push.
 
 Enable **Launch at login** from the in-app Settings (native login item via `SMAppService`).

@@ -156,6 +156,11 @@ final class CopilotAuth {
          kSecAttrService as String: kcService,
          kSecAttrAccount as String: kcAccount]
     }
+    // 进程内读缓存：本条目只由本类写，缓存读结果完全安全，消除每次刷新都 SecItemCopyMatching
+    // → 反复弹「允许访问钥匙串」（尤其 ad-hoc 开发签名下 ACL 每次重装失效时）。
+    private var tokenLoaded = false
+    private var tokenCache: String?
+
     private func keychainSave(_ token: String) {
         let data = Data(token.utf8)
         let status = SecItemUpdate(kcQuery() as CFDictionary, [kSecValueData as String: data] as CFDictionary)
@@ -165,14 +170,21 @@ final class CopilotAuth {
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             SecItemAdd(add as CFDictionary, nil)
         }
+        tokenCache = token; tokenLoaded = true   // 刚写入即最新值
     }
     private func keychainLoad() -> String? {
+        if tokenLoaded { return tokenCache }     // 命中进程内缓存，不再打钥匙串
         var q = kcQuery()
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
-        return String(decoding: d, as: UTF8.self)
+        let val = (SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess)
+            ? (out as? Data).map { String(decoding: $0, as: UTF8.self) } : nil
+        tokenCache = val; tokenLoaded = true
+        return val
     }
-    private func keychainDelete() { SecItemDelete(kcQuery() as CFDictionary) }
+    private func keychainDelete() {
+        SecItemDelete(kcQuery() as CFDictionary)
+        tokenCache = nil; tokenLoaded = true
+    }
 }

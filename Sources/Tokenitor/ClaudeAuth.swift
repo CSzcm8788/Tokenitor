@@ -63,6 +63,7 @@ final class ClaudeAuth {
     /// 拿到一个可用的 access token（必要时自动续期——仅限自己的 token 线）。
     /// 回调：(token, errorMessage)。token 为 nil 时给出原因。
     func accessToken(forceRefresh: Bool = false, completion: @escaping (String?, String?) -> Void) {
+        if forceRefresh { invalidateReadCache() }   // 疑似过期：别家条目缓存作废，重读拿最新
         guard let creds = loadCreds() else {
             completion(nil, L("未找到 Claude 订阅凭证（请用订阅账号 /login 一次）", "No Claude subscription credentials found (run /login once with your subscription account)"))
             return
@@ -281,10 +282,19 @@ final class ClaudeAuth {
         ownDataCache = nil; ownDataLoaded = true
     }
 
+    // 读别家（Claude Code）条目的进程内缓存：service → 结果（含"读过但为空"）。
+    // 别家条目可能被 Claude Code 在外部续期，故 forceRefresh 时主动失效（见 accessToken）；
+    // 稳态下不再每 60 秒重复读三个 service、反复弹授权框。
+    private var readCache: [String: Data?] = [:]
+
+    /// forceRefresh（token 疑似过期）时清掉别家条目缓存，下一轮 loadCreds 重读拿最新 token。
+    private func invalidateReadCache() { readCache.removeAll() }
+
     /// 读取其它应用（Claude Code）的钥匙串条目 —— 用 Security API 而非起 `/usr/bin/security` 子进程：
     /// 授权弹窗的请求方是 Tokenitor 本体，用户点「始终允许」也只放行本应用的签名身份；
     /// 走 `security` 命令行则会把系统二进制加进条目 ACL，此后任何进程都能借它静默读走凭证。
     private func readKeychain(service: String) -> Data? {
+        if let cached = readCache[service] { return cached }   // 命中缓存（含空结果）
         let q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -292,11 +302,16 @@ final class ClaudeAuth {
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
-              let data = out as? Data, !data.isEmpty else { return nil }
-        // 钥匙串里可能是 JSON，也可能是裸 token
-        let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("{") { return data }
-        return ("{\"accessToken\":\"" + s + "\"}").data(using: .utf8)
+        let result: Data?
+        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+           let data = out as? Data, !data.isEmpty {
+            // 钥匙串里可能是 JSON，也可能是裸 token
+            let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            result = s.hasPrefix("{") ? data : ("{\"accessToken\":\"" + s + "\"}").data(using: .utf8)
+        } else {
+            result = nil
+        }
+        readCache[service] = result
+        return result
     }
 }
