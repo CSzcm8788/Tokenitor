@@ -114,12 +114,21 @@ struct GroupedTokenChart: View {
 
     private let axisWidth: CGFloat = 34
 
+    /// 刻度用短格式（196M 而非 196.43M），34pt 轴宽内不截断。
+    private func axisLabel(_ n: Int) -> String {
+        let d = Double(n)
+        if d >= 10_000_000 { return String(format: "%.0fM", d / 1_000_000) }
+        if d >= 1_000_000 { return String(format: "%.1fM", d / 1_000_000) }
+        if d >= 1_000 { return String(format: "%.0fK", d / 1_000) }
+        return "\(n)"
+    }
+
     /// 左侧刻度标注：顶 / 中 / 0，与三条网格线对齐。
     private var axis: some View {
         VStack(spacing: 0) {
-            Text(formatTokens(maxV)).frame(maxHeight: 0, alignment: .top)
+            Text(axisLabel(maxV)).frame(maxHeight: 0, alignment: .top)
             Spacer()
-            Text(formatTokens(maxV / 2))
+            Text(axisLabel(maxV / 2))
             Spacer()
             Text("0").frame(maxHeight: 0, alignment: .bottom)
         }

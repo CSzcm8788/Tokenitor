@@ -74,11 +74,11 @@ struct TokenStat: Identifiable, Equatable {
 struct ModelPrice { let input, output, cacheRead, cacheWrite: Double }
 
 enum Pricing {
-    /// 定价表数据截至日期（更新价格时同步改这里；说明页展示给用户）。
-    static let asOf = "2026-07"
+    /// 定价数据截至日期：优先取打包的 LiteLLM 快照日期（发版时 sync-pricing.sh 更新），兜底常量。
+    static var asOf: String { PricingTable.snapshotDate ?? "2026-07" }
 
-    /// 关键字 → 价格（按子串匹配，越具体放越前）。
-    private static let table: [(key: String, price: ModelPrice)] = [
+    /// 兜底关键字表（快照缺失/损坏、且社区表查不到该模型时的最后保险）。
+    private static let legacyTable: [(key: String, price: ModelPrice)] = [
         ("opus",          ModelPrice(input: 15,   output: 75, cacheRead: 1.50,  cacheWrite: 18.75)),
         ("sonnet",        ModelPrice(input: 3,    output: 15, cacheRead: 0.30,  cacheWrite: 3.75)),
         ("haiku",         ModelPrice(input: 0.80, output: 4,  cacheRead: 0.08,  cacheWrite: 1.0)),
@@ -89,9 +89,32 @@ enum Pricing {
         ("o3",            ModelPrice(input: 2,    output: 8,  cacheRead: 0.50,  cacheWrite: 0)),
     ]
 
+    // 查价备忘录：一次会话里模型就那几个，miss 时的前缀扫描只做一次（跨线程访问加锁）。
+    private static let memoLock = NSLock()
+    private static var memo: [String: ModelPrice?] = [:]
+
+    /// 查价链：社区表精确命中 → 社区表前缀匹配（带日期后缀的模型名）→ 旧关键字表兜底。
     static func price(for model: String) -> ModelPrice? {
-        let m = model.lowercased()
-        return table.first(where: { m.contains($0.key) })?.price
+        let m = PricingTable.normalize(model)
+        memoLock.lock()
+        if let cached = memo[m] { memoLock.unlock(); return cached }
+        memoLock.unlock()
+
+        var result = PricingTable.shared[m]
+        if result == nil {
+            // 前缀匹配：会话里的 "claude-opus-4-8-20260301" ↔ 表里的 "claude-opus-4-8"；
+            // 取能匹配的最长键（≥8 字符防误配）。仅在 miss 时全表扫一次，结果进备忘录。
+            var bestLen = 0
+            for (key, p) in PricingTable.shared
+            where key.count >= 8 && (m.hasPrefix(key) || key.hasPrefix(m)) && key.count > bestLen {
+                result = p; bestLen = key.count
+            }
+        }
+        if result == nil {
+            result = legacyTable.first(where: { m.contains($0.key) })?.price
+        }
+        memoLock.lock(); memo[m] = result; memoLock.unlock()
+        return result
     }
 
     /// 按定价表估算成本（美元）。查不到返回 0。

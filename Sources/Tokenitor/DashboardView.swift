@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.5", L("接入 LiteLLM 社区定价（2900+ 模型）：新模型成本/缓存节省自动覆盖，发版时同步", "LiteLLM community pricing (2900+ models): new-model costs auto-covered, synced at release")),
         ("1.4.4", L("修复频繁弹「允许访问钥匙串」：Copilot / Claude Code 条目加进程内读缓存", "Fix repeated Keychain prompts: in-process read cache for Copilot / Claude Code items")),
         ("1.4.3", L("服务状态改组件级：无关组件不再误报「服务降级」· Codex 档位读本地 plan_type", "Component-level status (no more false degraded) · Codex plan from local plan_type")),
         ("1.4.2", L("标准菜单四件套（视图⌘1⌘2/窗口⌘M⌘W/帮助）· 工具栏刷新带进行中状态", "Standard menus (View/Window/Help) · toolbar refresh with spinner")),

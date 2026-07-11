@@ -27,6 +27,13 @@ if [ -z "${DEVID_APP:-}" ]; then
 fi
 echo "==> 签名身份: ${DEVID_APP}"
 
+# 1.5) 对照 LiteLLM 社区定价：一致跳过；不一致则更新快照并要求先提交（保证 DMG 与仓库一致）
+echo "==> 对照社区定价快照…"
+bash sync-pricing.sh || echo "  (网络不可用，沿用现有快照)"
+if ! git diff --quiet -- Pricing/ 2>/dev/null; then
+  echo "✗ 定价快照刚被更新但未提交——请先提交 Pricing/ 再发版"; exit 1
+fi
+
 # 2) 构建（用现有 build.sh 产出 .app）。先用 ad-hoc 出包，下面再用 Developer ID 重签。
 echo "==> 构建…"
 CODESIGN_ID="-" bash build.sh >/dev/null

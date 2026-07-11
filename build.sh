@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Tokenitor"
 BUNDLE_ID="com.tokenitor.app"
-VERSION="1.4.4"
+VERSION="1.4.5"
 BUILD_NUM="$(date +%Y%m%d%H%M)"   # 每次构建递增的 build 号：让 macOS 注意到图标变化、刷新通知图标缓存
 BUILD_DIR=".build/release"
 APP_DIR="dist/${APP_NAME}.app"
@@ -37,6 +37,11 @@ fi
 # 菜单栏单色 logo（18pt + @2x，模板图，运行时 NSImage(named:"menubar") 加载，自动适配亮/暗）
 if [ -d "Icon/menubar" ]; then
     cp Icon/menubar/menubar.png Icon/menubar/menubar@2x.png "${APP_DIR}/Contents/Resources/" 2>/dev/null && echo "  已打包菜单栏 logo" || true
+fi
+
+# 社区定价快照（LiteLLM，MIT；由 sync-pricing.sh 在发版时更新）
+if [ -f "Pricing/model_prices.json" ]; then
+    cp Pricing/model_prices.json Pricing/model_prices_meta.json "${APP_DIR}/Contents/Resources/"         && echo "  已打包定价快照 ($(python3 -c "import json;print(json.load(open('Pricing/model_prices_meta.json'))['updated'])" 2>/dev/null || echo '?'))"
 fi
 
 # 一键重登脚本（供 App 内「重新登录 Claude」调用）

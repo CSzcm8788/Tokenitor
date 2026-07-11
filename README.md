@@ -133,7 +133,7 @@ swift run -c release
 | Claude Code | `~/.claude/projects/**/*.jsonl` | 每条 assistant 消息的 `message.usage`（input/output/缓存）。**仅 Claude Code 终端**会把 token 写本地；Claude 桌面 App / 网页**不写本地**，故无数据。 |
 | OpenCode | `~/.local/share/opencode/opencode.db` | 读 `message` 表 `data` 列中 assistant 消息的 `tokens` 与 `cost`，**直接采用其自带成本**（连定价表外的模型如 DeepSeek 也准）。 |
 
-> 成本为按公开定价估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。定价表在 `TokenUsage.swift`，随官方调整时更新。
+> 成本为按 **LiteLLM 社区定价表**（MIT，2900+ 模型）估算的「等值花费」，订阅用户非实际账单；查不到定价的模型显示「—」。快照打包在 app 内、**发版时**与上游同步（`sync-pricing.sh`），运行时不联网。
 
 **用量页 与 Token 页是两套独立数据源**：设置里的**开关只控制「用量页」**（配额 %）；**Token 页不看开关**——它直接扫本地 token 文件，谁写了本地 token 就显示谁。对照：
 
