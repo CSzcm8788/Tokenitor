@@ -17,6 +17,7 @@ struct ProviderChipsRow: View {
             if let plan = snap.plan, !plan.isEmpty {
                 Self.chip(plan, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
             }
+            dataAgeChip
             serviceChip
         }
     }
@@ -30,6 +31,17 @@ struct ProviderChipsRow: View {
             Self.chip(L("缓存", "Cached"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16), compact: compact)
         } else {
             Self.chip(L("离线", "Offline"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14), compact: compact)
+        }
+    }
+
+    /// 数据时间胶囊：数据自身时间落后读取时间 3 分钟以上才显示（如 Codex 长任务轮次间隙）。
+    @ViewBuilder
+    private var dataAgeChip: some View {
+        if let t = snap.dataAsOf, Date().timeIntervalSince(t) > 180 {
+            Self.chip(L("数据 ", "Data ") + formatUpdatedAgo(t),
+                      fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+                .help(L("数据来自 Codex 最近一次 rate_limits 事件；长任务执行中不产生新事件属正常",
+                        "From the latest Codex rate_limits event; no new events during a long-running turn is normal"))
         }
     }
 

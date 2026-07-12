@@ -33,6 +33,9 @@ struct ProviderSnapshot {
     /// 是否为过期缓存数据（限流/断网时展示上次成功结果）。UI 照常显示，但告警引擎跳过，
     /// 避免基于几小时前的旧数据推送「即将耗尽」通知。
     var isStale: Bool = false
+    /// 数据自身的时间点（如 Codex rate_limits 事件的时间戳）。与「更新于」（读取时间）区分：
+    /// 滞后明显时卡片显示「数据 X分钟前」胶囊，不让刚刷新的读取时间制造假新鲜感。
+    var dataAsOf: Date? = nil
 
     static func failed(_ name: String, _ message: String) -> ProviderSnapshot {
         ProviderSnapshot(name: name, windows: [], ok: false, error: message)

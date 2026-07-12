@@ -294,9 +294,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restartTimer() {
         timer?.invalidate()
         let interval = Settings.shared.refreshInterval
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        // .common mode：弹层/菜单追踪期间不暂停；tolerance 5s + Info.plist 的 NSAppSleepDisabled
+        // 共同保证后台常驻时 120s 就是 120s（App Nap 曾把节拍拉长数倍 → 用量看起来滞后）。
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        t.tolerance = 5
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
     }
 
     /// 轻量历史 tick：每 10 分钟聚合一次，仅为落盘每日历史 + 预热 Token 页（与是否查看无关）。

@@ -22,7 +22,7 @@ struct HelpView: View {
                 card("network", L("数据来源 · 用量页（配额 %）", "Data Sources · Usage Page (quota %)")) {
                     providerRow("Codex", "~/.codex/sessions/**/*.jsonl",
                                 [(L("本地", "Local"), .ok)],
-                                L("解析 `rate_limits`（primary=5h、secondary=周），不联网。", "Parses `rate_limits` from session files (primary = 5h, secondary = weekly). No network."))
+                                L("增量解析 `rate_limits`（primary=5h、secondary=周），不联网；数据滞后超 3 分钟时卡片显示「数据 X分钟前」。", "Incrementally parses `rate_limits` (primary = 5h, secondary = weekly), no network; a \u{201C}Data Xm ago\u{201D} chip appears when the event lags >3 min."))
                     rowDivider
                     providerRow("Gemini", "~/.gemini/tmp/<user>/logs.json",
                                 [(L("本地估算", "Local estimate"), .ok)],
