@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.4.7", L("分段式用量条（20/50 刻度）· Codex 重置额度胶囊 · 失败自动退避 · 快速入门", "Segmented bars (20/50 ticks) · Codex reset-credits chip · failure backoff · quick start")),
         ("1.4.6", L("修复 Codex 用量滞后/不准：增量读取免疫巨行 · 数据时间胶囊 · 关闭 App Nap", "Fix Codex lag: incremental reads immune to giant lines · data-age chip · App Nap off")),
         ("1.4.5", L("接入 LiteLLM 社区定价（2900+ 模型）：新模型成本/缓存节省自动覆盖，发版时同步", "LiteLLM community pricing (2900+ models): new-model costs auto-covered, synced at release")),
         ("1.4.4", L("修复频繁弹「允许访问钥匙串」：Copilot / Claude Code 条目加进程内读缓存", "Fix repeated Keychain prompts: in-process read cache for Copilot / Claude Code items")),

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 下载最新版 · Latest release
+    url: https://github.com/CSzcm8788/Tokenitor/releases/latest
+    about: 报告前先试试最新版是否已修复 · Please try the latest version first

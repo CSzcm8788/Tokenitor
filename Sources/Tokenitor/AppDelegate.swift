@@ -16,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingRefresh = false
     private var fetchGeneration = 0   // 刷新代数：看门狗与迟到回调用它识别「这轮是否已被收尾」
 
+    // 失败退避：某数据源连续 3 次失败/限流 → 10 分钟内自动刷新跳过它（沿用上次结果），
+    // 成功一次即恢复正常节奏；手动刷新（⌘R/按钮）始终全量重试并清空退避。
+    private var failStreak: [String: Int] = [:]
+    private var backoffUntil: [String: Date] = [:]
+    private var lastResult: [String: ProviderSnapshot] = [:]
+
     // 数据源由模块化注册表生成（增删 AI 只改 AIKind）
     private let providers: [UsageProvider] = AIKind.allCases.map { $0.makeProvider() }
 
@@ -94,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    @objc private func menuRefresh() { refresh() }
+    @objc private func menuRefresh() { refresh(force: true) }
     @objc private func showUsagePage() { store.page = .usage; showWindow() }
     @objc private func showTokensPage() { store.page = .tokens; showWindow() }
     @objc private func openGitHub() {
@@ -150,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         log("applicationDidFinishLaunching")
         Disclaimer.presentIfNeeded()   // 首次启动：免责声明（不同意则退出）
         // SwiftUI 展示层的动作回调
-        store.onRefresh = { [weak self] in self?.refresh() }
+        store.onRefresh = { [weak self] in self?.refresh(force: true) }
         store.onShowHelp = { [weak self] in self?.showHelp() }
         store.onShowSettings = { [weak self] in self?.showSettings() }
         store.onTestNotify = { Notifier.shared.test() }
@@ -270,7 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard statusController == nil else { return }
         log("creating StatusBarController…")
         statusController = StatusBarController(store: store)
-        statusController.onRefreshNow = { [weak self] in self?.refresh() }
+        statusController.onRefreshNow = { [weak self] in self?.refresh(force: true) }
         statusController.onQuit = { NSApp.terminate(nil) }
         statusController.onShowHelp = { [weak self] in self?.showHelp() }
         log("StatusBarController created")
@@ -355,7 +361,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func refresh() {
+    private func refresh(force: Bool = false) {
+        if force { backoffUntil.removeAll(); failStreak.removeAll() }
         if store.page == .tokens { refreshTokens() }   // 仅在查看 Token 页时随主刷新更新 token UI（其余靠低频 tick）
         // 正在抓取时不并发；记一个挂起标记，本轮结束后自动再抓一次（确保新开启的 AI 立即出现）
         if isFetching { pendingRefresh = true; return }
@@ -394,18 +401,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.store.update(ordered)
         }
 
+        var reusedAny = false
         for p in active {
+            // 退避中的数据源本轮跳过（沿用上次结果，卡片维持 缓存/离线 胶囊），到点自动恢复尝试
+            if let until = backoffUntil[p.displayName], Date() < until,
+               let cached = lastResult[p.displayName] {
+                results[p.displayName] = cached
+                reusedAny = true
+                continue
+            }
             group.enter()
             p.fetch { snap in
                 DispatchQueue.main.async {
                     defer { group.leave() }
                     // 看门狗已收尾且新一轮已开始 → 本轮迟到结果作废
                     guard gen == self.fetchGeneration else { return }
+                    self.lastResult[p.displayName] = snap
+                    self.recordOutcome(p.displayName, snap)
                     results[p.displayName] = snap
                     renderPartial()
                 }
             }
         }
+        if reusedAny { renderPartial() }   // 全员退避时也要立即渲染沿用的结果
 
         group.notify(queue: .main) {
             guard self.fetchGeneration == gen else { return }
@@ -413,6 +431,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let ordered = active.compactMap { results[$0.displayName] }.filter { !$0.hidden }
             self.alertEngine.evaluate(ordered)
             self.finishFetch()
+        }
+    }
+
+    /// 退避记账：失败/限流（isStale 的缓存降级也算）计入连败；连败满 3 次进入 10 分钟退避，
+    /// 退避期满后的再失败立即续期（streak 不清零）；成功一次全部复原。hidden（未在使用）不计。
+    private func recordOutcome(_ name: String, _ snap: ProviderSnapshot) {
+        let failed = (!snap.ok || snap.isStale) && !snap.hidden
+        if failed {
+            failStreak[name, default: 0] += 1
+            if failStreak[name]! >= 3 {
+                backoffUntil[name] = Date().addingTimeInterval(600)
+                log("\(name) 连续 \(failStreak[name]!) 次失败/限流 → 退避 10 分钟（手动刷新可随时重试）")
+            }
+        } else {
+            failStreak[name] = 0
+            backoffUntil[name] = nil
         }
     }
 

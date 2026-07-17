@@ -18,11 +18,19 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 14) {
                 hero
 
+                // ⓪ 快速入门：三步上手，给第一次打开的用户看；技术细节在下面各卡片。
+                card("sparkles", L("快速入门", "Quick Start")) {
+                    bullet(L("**1 · 打开就能用**：Codex / Gemini 读本地文件，装好即显示；卡片只出现你在用的 AI。", "**1 · Works out of the box**: Codex / Gemini read local files and appear automatically; only tools you actually use show up."))
+                    bullet(L("**2 · 想看 Claude / Copilot**：设置 → 打开对应开关并授权一次（走未公开端点，默认关）。", "**2 · Want Claude / Copilot?** Settings → enable the toggle and authorize once (undocumented endpoints, off by default)."))
+                    bullet(L("**3 · 看懂一张卡**：分段条=剩余量（20/50 刻度）· 绿黄红=充足/偏低/紧急 · 「LIVE/缓存/离线」=数据新鲜度 · ↻=重置倒计时。", "**3 · Reading a card**: segmented bar = remaining (ticks at 20/50) · green/amber/red = healthy/low/critical · LIVE/Cached/Offline = data freshness · ↻ = reset countdown."))
+                    note(L("菜单栏图标随时速览；主窗口关掉也在后台守着，⌘Q 才退出。", "The menu-bar icon is always a click away; closing the window keeps it running — quit with ⌘Q."))
+                }
+
                 // ① 用量页（配额 %）的数据源：端点/路径 · 官方性 · 默认开关。
                 card("network", L("数据来源 · 用量页（配额 %）", "Data Sources · Usage Page (quota %)")) {
                     providerRow("Codex", "~/.codex/sessions/**/*.jsonl",
                                 [(L("本地", "Local"), .ok)],
-                                L("增量解析 `rate_limits`（primary=5h、secondary=周），不联网；数据滞后超 3 分钟时卡片显示「数据 X分钟前」。", "Incrementally parses `rate_limits` (primary = 5h, secondary = weekly), no network; a \u{201C}Data Xm ago\u{201D} chip appears when the event lags >3 min."))
+                                L("增量解析 `rate_limits`（5h/周窗口按 window_minutes 自动识别，兼容新版仅周窗口），不联网；有「限额重置额度」余额时显示胶囊；数据滞后超 3 分钟显示「数据 X分钟前」。", "Incrementally parses `rate_limits` (5h/weekly windows auto-detected via window_minutes, incl. the new weekly-only schema), no network; a Resets chip appears when reset credits are available; \u{201C}Data Xm ago\u{201D} shows when the event lags >3 min."))
                     rowDivider
                     providerRow("Gemini", "~/.gemini/tmp/<user>/logs.json",
                                 [(L("本地估算", "Local estimate"), .ok)],
@@ -30,7 +38,7 @@ struct HelpView: View {
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
                                 [(L("未公开", "Undocumented"), .warn), (L("默认关", "Off by default"), .mut)],
-                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited."))
+                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存 · 连续失败自动退避 10 分钟（手动刷新即重试）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited; backs off for 10 min after repeated failures (manual refresh retries immediately)."))
                     rowDivider
                     providerRow("Copilot", "api.github.com/copilot_internal/user",
                                 [(L("内部", "Internal"), .warn), (L("默认关", "Off by default"), .mut)],

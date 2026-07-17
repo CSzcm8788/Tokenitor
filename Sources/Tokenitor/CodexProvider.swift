@@ -67,9 +67,11 @@ final class CodexProvider: UsageProvider {
         // 档位主源：rate_limits.plan_type（与实际配额同源）；读不到退回 auth.json 的 JWT claim
         let plan = PlanTier.codex(best.rl["plan_type"] as? String)
             ?? PlanTier.codexPlanFromAuthFile()
+        let (credits, unlimited) = Self.parseCredits(best.rl["credits"])
         return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil,
                                 plan: plan,
-                                dataAsOf: best.ts == .distantPast ? nil : best.ts)
+                                dataAsOf: best.ts == .distantPast ? nil : best.ts,
+                                resetCredits: credits, resetCreditsUnlimited: unlimited)
     }
 
     /// 把单个文件的解析推进到末尾；首见文件从尾部 initialTail 起步，未命中一次性扩窗重扫。
@@ -118,6 +120,15 @@ final class CodexProvider: UsageProvider {
         let dict = obj as? [String: Any]
         let ts = (dict?["timestamp"] as? String) ?? (dict?["ts"] as? String)
         return (rl, ts.flatMap(parseISO))
+    }
+
+    /// 解析 rate_limits.credits（限额重置额度）：返回 (余额>0 时的次数, 是否无限)。
+    /// balance 官方给的是字符串（如 "4"）；到期明细本地数据没有，不臆造。
+    static func parseCredits(_ obj: Any?) -> (Int?, Bool) {
+        guard let c = obj as? [String: Any] else { return (nil, false) }
+        let unlimited = c["unlimited"] as? Bool ?? false
+        let balance = (c["balance"] as? String).flatMap(Int.init) ?? c["balance"] as? Int
+        return (balance.flatMap { $0 > 0 ? $0 : nil }, unlimited)
     }
 
     /// 取最近修改、且在 8 天内的 .jsonl 会话文件，按修改时间倒序。

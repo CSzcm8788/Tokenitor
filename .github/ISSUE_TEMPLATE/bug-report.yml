@@ -1,0 +1,24 @@
+name: Bug 报告 · Bug report
+description: 界面、通知、安装等其它问题 · UI, notifications, install, anything else
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Tokenitor 版本 + macOS 版本 · Tokenitor + macOS version
+      placeholder: "1.4.7 · macOS 26.1"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 · What happened
+      description: 期望 vs 实际，最好带截图 · Expected vs actual, screenshots welcome
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 · Steps to reproduce
+      placeholder: "1. …  2. …  3. …"

@@ -1,0 +1,52 @@
+name: 端点失效 / 读数异常 · Endpoint failure / wrong readings
+description: 某个 AI 的卡片显示 离线/缓存，或百分比明显不对 · A card shows Offline/Cached, or the percentage looks wrong
+title: "[数据] "
+labels: ["endpoint"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Claude / Copilot 走的是**非官方端点**，官方随时可能变更——你的报告是大家最快的预警。谢谢！
+        Claude / Copilot rely on **undocumented endpoints** that may change at any time — your report is everyone's early warning. Thanks!
+  - type: input
+    id: version
+    attributes:
+      label: Tokenitor 版本 · Version
+      description: 菜单栏 → 关于 Tokenitor · Menu bar → About Tokenitor
+      placeholder: "1.4.7"
+    validations:
+      required: true
+  - type: dropdown
+    id: ai
+    attributes:
+      label: 哪个 AI · Which AI
+      options: [Claude, Codex, Gemini, Copilot, 多个 · Multiple]
+    validations:
+      required: true
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: 症状 · Symptom
+      options:
+        - 卡片显示「离线」 · Card shows Offline
+        - 卡片显示「缓存」不恢复 · Stuck on Cached
+        - 百分比明显不对 · Percentage clearly wrong
+        - 卡片消失了 · Card disappeared
+        - 其他 · Other
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: 现象描述 + 截图 · What you saw + screenshot
+      description: 卡片截图最有用（胶囊/百分比都在里面）· A card screenshot is most useful
+    validations:
+      required: true
+  - type: textarea
+    id: dump
+    attributes:
+      label: 调试转储（可选）· Debug dump (optional)
+      description: |
+        设置 → 打开「调试转储原始响应」→ 手动刷新一次 → 把 `~/.tokenitor/debug/` 里对应 AI 的 JSON 贴上来（已自动脱敏）。
+        Settings → enable "Dump raw responses" → refresh once → paste the matching JSON from `~/.tokenitor/debug/` (auto-redacted).
+      render: json

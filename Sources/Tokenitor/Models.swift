@@ -36,6 +36,10 @@ struct ProviderSnapshot {
     /// 数据自身的时间点（如 Codex rate_limits 事件的时间戳）。与「更新于」（读取时间）区分：
     /// 滞后明显时卡片显示「数据 X分钟前」胶囊，不让刚刷新的读取时间制造假新鲜感。
     var dataAsOf: Date? = nil
+    /// 限额重置额度剩余次数（Codex rate_limits.credits.balance）。到期明细本地无、不显示；
+    /// 余额为 0 或读不到时为 nil（胶囊隐藏）。unlimited 时显示 ∞。
+    var resetCredits: Int? = nil
+    var resetCreditsUnlimited: Bool = false
 
     static func failed(_ name: String, _ message: String) -> ProviderSnapshot {
         ProviderSnapshot(name: name, windows: [], ok: false, error: message)

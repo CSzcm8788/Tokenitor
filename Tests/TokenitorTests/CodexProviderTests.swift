@@ -60,6 +60,18 @@ final class CodexProviderTests: XCTestCase {
         XCTAssertNotNil(second.dataAsOf)
     }
 
+    func testParseCredits() {
+        // 官方 balance 是字符串；余额 0 → nil（胶囊隐藏）
+        let (n1, u1) = CodexProvider.parseCredits(["has_credits": true, "unlimited": false, "balance": "4"])
+        XCTAssertEqual(n1, 4); XCTAssertFalse(u1)
+        let (n2, _) = CodexProvider.parseCredits(["has_credits": false, "unlimited": false, "balance": "0"])
+        XCTAssertNil(n2)
+        let (n3, u3) = CodexProvider.parseCredits(["unlimited": true, "balance": "0"])
+        XCTAssertNil(n3); XCTAssertTrue(u3)
+        let (n4, u4) = CodexProvider.parseCredits(nil)
+        XCTAssertNil(n4); XCTAssertFalse(u4)
+    }
+
     func testParseLineWithoutRateLimits() {
         let line: Substring = #"{"timestamp":"2026-07-12T04:30:00Z","type":"message","content":"hello"}"#
         XCTAssertNil(CodexProvider.parseRateLimitsLine(line))

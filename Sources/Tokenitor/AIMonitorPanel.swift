@@ -17,6 +17,7 @@ struct ProviderChipsRow: View {
             if let plan = snap.plan, !plan.isEmpty {
                 Self.chip(plan, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
             }
+            creditsChip
             dataAgeChip
             serviceChip
         }
@@ -31,6 +32,21 @@ struct ProviderChipsRow: View {
             Self.chip(L("缓存", "Cached"), fg: GaugeColor.warning, bg: GaugeColor.warning.opacity(0.16), compact: compact)
         } else {
             Self.chip(L("离线", "Offline"), fg: GaugeColor.critical, bg: GaugeColor.critical.opacity(0.14), compact: compact)
+        }
+    }
+
+    /// 限额重置额度胶囊（Codex credits）：有余额才显示；到期明细本地不可得，只显示次数。
+    @ViewBuilder
+    private var creditsChip: some View {
+        if snap.resetCreditsUnlimited {
+            Self.chip(L("重置额度 ∞", "Resets ∞"),
+                      fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+                .help(L("限额重置额度：无限", "Rate-limit reset credits: unlimited"))
+        } else if let n = snap.resetCredits {
+            Self.chip(L("重置额度 \(n)", "Resets ×\(n)"),
+                      fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+                .help(L("限额重置额度剩余 \(n) 次（各笔到期时间官方未写入本地，无法显示）",
+                        "\(n) rate-limit reset credits left (per-credit expiry isn't written locally, so it can't be shown)"))
         }
     }
 
