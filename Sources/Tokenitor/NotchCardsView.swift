@@ -68,7 +68,7 @@ struct NotchCardsView: View {
                             }
                         }
                         // 细进度条：与主窗口同色同形（统一三态色板）
-                        UsageBar(fraction: w.remainingPercent / 100, color: levelColor(level), height: 5)
+                        UsageBar(fraction: w.remainingPercent / 100, color: levelColor(level), height: 5, segmented: w.label == "5h")
                             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: w.remainingPercent)
                     }
                 }

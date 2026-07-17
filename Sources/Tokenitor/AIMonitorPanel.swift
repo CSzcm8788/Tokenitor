@@ -173,7 +173,7 @@ struct AIMonitorPanel: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            UsageBar(fraction: w.remainingPercent / 100, color: color, height: 6)
+            UsageBar(fraction: w.remainingPercent / 100, color: color, height: 6, segmented: w.label == "5h")
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: w.remainingPercent)
         }
     }

@@ -18,7 +18,7 @@ Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; r
 
 1. **Install**: [download the DMG](https://github.com/CSzcm8788/Tokenitor/releases/latest) and drag it into Applications, or one-line `curl -fsSL https://raw.githubusercontent.com/CSzcm8788/Tokenitor/main/get.sh | bash`.
 2. **Look**: a ◔ icon appears in the menu bar — left-click for the glance popover. Codex / Gemini cards **show up automatically** (fully local, zero config); for Claude / Copilot, flip the toggle in Settings and authorize once (undocumented endpoints, off by default).
-3. **Read**: segmented bar = remaining (ticks at 20/50) · green/amber/red = healthy/low/critical · `LIVE`/`Cached`/`Offline` = data freshness · ↻ = reset countdown. A system notification fires when remaining drops below your threshold.
+3. **Read**: bars show remaining quota — the 5-hour window carries tick marks at 20%/50% · green/amber/red = healthy/low/critical · `LIVE`/`Cached`/`Offline` = data freshness · ↻ = reset countdown. A system notification fires when remaining drops below your threshold.
 
 Odd readings or a dead endpoint? [Open an issue](https://github.com/CSzcm8788/Tokenitor/issues/new/choose) — the template walks you through the key info.
 
