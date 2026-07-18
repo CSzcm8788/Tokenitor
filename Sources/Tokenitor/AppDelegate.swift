@@ -232,6 +232,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showWindow() {
         setupWindow()
+        if window.contentViewController == nil {   // 关窗时已释放 → 重建（保持用户窗口尺寸不动）
+            let t0 = CFAbsoluteTimeGetCurrent()
+            let frame = window.frame
+            window.contentViewController = NSHostingController(rootView: DashboardView(store: store))
+            window.setFrame(frame, display: false)
+            log(String(format: "window content rebuilt in %.0fms, footprint %.0fMB",
+                       (CFAbsoluteTimeGetCurrent() - t0) * 1000, memFootprintMB()))
+        }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -469,6 +477,15 @@ extension AppDelegate: NSWindowDelegate {
 
     /// 关窗后把页面重置回用量页：避免主窗口关着却仍停在 Token 页、让后台按 Token 页高频聚合。
     func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === window else { return }   // 说明页独立窗口不在此列
         if store.page != .usage { store.page = .usage }
+        // 关窗即释放视图层（SwiftUI 视图树 + 图表纹理）：菜单栏应用 9 成时间是「关窗后台常驻」，
+        // 这是最值得省的常驻内存。数据全部在 store / 聚合缓存里（不释放），开窗重建只是纯视图构建，
+        // 实测毫秒级（见 showWindow 的 rebuilt 日志）；页面本就重置回用量页，无状态损失。
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.window.isVisible else { return }
+            self.window.contentViewController = nil
+            log(String(format: "window content released, footprint %.0fMB", memFootprintMB()))
+        }
     }
 }

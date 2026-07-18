@@ -33,7 +33,12 @@ enum CLIRunner {
         for s in snaps {
             var head = "\(s.name) [\(status(s))]"
             if let plan = s.plan, !plan.isEmpty { head += " [\(plan)]" }
+            if s.resetCreditsUnlimited { head += " [resets ∞]" }
+            else if let n = s.resetCredits { head += " [resets ×\(n)]" }
             print(head)
+            if let t = s.dataAsOf, Date().timeIntervalSince(t) > 180 {
+                print("  data age: \(formatUpdatedAgo(t, english: true))")
+            }
             if !s.ok, let err = s.error {
                 print("  \(err)")
                 continue
@@ -66,6 +71,8 @@ enum CLIRunner {
                 },
             ]
             if let plan = s.plan, !plan.isEmpty { d["plan"] = plan }
+            if s.resetCreditsUnlimited { d["reset_credits_unlimited"] = true }
+            if let n = s.resetCredits { d["reset_credits"] = n }
             if let t = s.dataAsOf { d["data_as_of"] = iso.string(from: t) }
             if let err = s.error { d["error"] = err }
             return d
