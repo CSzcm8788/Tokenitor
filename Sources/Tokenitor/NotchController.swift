@@ -9,6 +9,7 @@ final class NotchController {
     private let store: UsageStore
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    private var clickMonitor: Any?
     private var pollTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
     private var started = false
@@ -40,6 +41,7 @@ final class NotchController {
         started = false
         if let m = globalMonitor { NSEvent.removeMonitor(m); globalMonitor = nil }
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
+        if let m = clickMonitor { NSEvent.removeMonitor(m); clickMonitor = nil }
         pollTimer?.invalidate(); pollTimer = nil
         cancellables.removeAll()
         panel.orderOut(nil)
@@ -58,6 +60,14 @@ final class NotchController {
         t.tolerance = 0.2
         RunLoop.main.add(t, forMode: .common)
         pollTimer = t
+
+        // 点面板任意位置 → 打开完整主窗口（仪表页）并收起面板（速览 → 详情的自然入口）
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] ev in
+            guard let self, ev.window === self.panel else { return ev }
+            self.hideNow()
+            self.store.onOpenWindow(.usage)
+            return nil   // 事件已消费，不再传给面板内容
+        }
 
         // 数据实时变化时，若面板正开着，立即按新内容重新测高/定位（增删 AI 后高度跟着变）
         store.$snapshots

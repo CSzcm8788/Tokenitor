@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// 「说明」页（侧边栏详情 + 独立窗口共用）：分区卡片，端点/路径以等宽 code 片段高亮，
-/// 状态用胶囊标签（本地 / 未公开 / 默认关）。这里是 app 内各项说明的**唯一出处**——
+/// 状态用胶囊标签（本地 / 社区接口 / 默认关）。这里是 app 内各项说明的**唯一出处**——
 /// 卡片正常状态不再挂描述文字，全部汇总到这里；改口径只改这里。
 final class HelpViewController: NSViewController {
     override func loadView() {
@@ -21,9 +21,9 @@ struct HelpView: View {
                 // ⓪ 快速入门：三步上手，给第一次打开的用户看；技术细节在下面各卡片。
                 card("sparkles", L("快速入门", "Quick Start")) {
                     bullet(L("**1 · 零配置起步**：Codex 与 Gemini 的用量来自本机会话文件，安装后自动显示；未使用的 AI 不会出现。", "**1 · Zero-config start**: Codex and Gemini usage comes from local session files and appears automatically after install; tools you don\u{2019}t use never show up."))
-                    bullet(L("**2 · 启用 Claude / Copilot（可选）**：二者依赖非官方端点，默认关闭；在「设置」中打开开关并完成一次授权即可显示。", "**2 · Enable Claude / Copilot (optional)**: both rely on unofficial endpoints and are off by default; turn on the toggle in Settings and authorize once."))
+                    bullet(L("**2 · 启用 Claude / Copilot（可选）**：二者经由社区通用接口（官方未文档化）读取，默认关闭；在「设置」中打开开关并完成一次授权即可显示。", "**2 · Enable Claude / Copilot (optional)**: both read via community APIs (not officially documented) and are off by default; turn on the toggle in Settings and authorize once."))
                     bullet(L("**3 · 读懂卡片**：进度条表示剩余配额，5 小时窗口带 20% / 50% 两道刻度；绿 / 黄 / 红 对应 充足 / 偏低 / 紧急；`LIVE` / `缓存` / `离线` 表示数据新鲜度；↻ 后为重置倒计时。", "**3 · Reading a card**: bars show remaining quota — the 5-hour window carries tick marks at 20% and 50%; green / amber / red mean healthy / low / critical; `LIVE` / `Cached` / `Offline` indicate data freshness; ↻ precedes the reset countdown."))
-                    note(L("左键菜单栏图标即可速览；关闭主窗口不会退出应用（后台继续监测），退出请用 ⌘Q。", "Left-click the menu-bar icon for a glance; closing the main window doesn\u{2019}t quit the app (monitoring continues in the background) — quit with ⌘Q."))
+                    note(L("左键菜单栏图标即可速览；点刘海面板任意位置打开完整主窗口。关闭主窗口不会退出应用（后台继续监测），退出请用 ⌘Q。", "Left-click the menu-bar icon for a glance; click anywhere on the notch panel to open the full window. Closing the main window doesn\u{2019}t quit the app (monitoring continues in the background) — quit with ⌘Q."))
                 }
 
                 // ① 用量页（配额 %）的数据源：端点/路径 · 官方性 · 默认开关。
@@ -37,11 +37,11 @@ struct HelpView: View {
                                 L("今日请求数，对约 1000/天估算，0 点重置。", "Counts today\u{2019}s requests against ~1000/day; resets at local midnight."))
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
-                                [(L("未公开", "Undocumented"), .warn), (L("默认关", "Off by default"), .mut)],
+                                [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
                                 L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存 · 连续失败自动退避 10 分钟（手动刷新即重试）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited; backs off for 10 min after repeated failures (manual refresh retries immediately)."))
                     rowDivider
                     providerRow("Copilot", "api.github.com/copilot_internal/user",
-                                [(L("内部", "Internal"), .warn), (L("默认关", "Off by default"), .mut)],
+                                [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
                                 L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot`。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot`."))
                     note(L("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。", "Only tools you actually use (installed / signed in) are shown; the rest hide automatically."))
                     note(L("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页，**组件级**判定——只看与该 AI 相关的组件（如 Codex API / Claude Code / Copilot），无关组件（如 FedRAMP）不会误报；异常时卡片显示「服务降级 / 中断」胶囊（悬停看具体组件）、菜单栏图标加指示点。", "Service status monitor (can be disabled in Settings): polls each vendor\u{2019}s public status page every 5 minutes at the **component level** — only components relevant to that AI (Codex API / Claude Code / Copilot) count, so unrelated ones (e.g. FedRAMP) can\u{2019}t cause false alarms; on incidents the card shows a Degraded / Outage chip (hover for details) and the menu-bar icon gets a dot."))

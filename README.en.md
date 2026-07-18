@@ -17,7 +17,7 @@ Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; r
 ## Three-minute start
 
 1. **Install**: [download the DMG](https://github.com/CSzcm8788/Tokenitor/releases/latest) and drag it into Applications, or one-line `curl -fsSL https://raw.githubusercontent.com/CSzcm8788/Tokenitor/main/get.sh | bash`.
-2. **Look**: a ◔ icon appears in the menu bar — left-click for the glance popover. Codex / Gemini cards **show up automatically** (fully local, zero config); for Claude / Copilot, flip the toggle in Settings and authorize once (undocumented endpoints, off by default).
+2. **Look**: a ◔ icon appears in the menu bar — left-click for the glance popover. Codex / Gemini cards **show up automatically** (fully local, zero config); for Claude / Copilot, flip the toggle in Settings and authorize once (community APIs, off by default).
 3. **Read**: bars show remaining quota — the 5-hour window carries tick marks at 20%/50% · green/amber/red = healthy/low/critical · `LIVE`/`Cached`/`Offline` = data freshness · ↻ = reset countdown. A system notification fires when remaining drops below your threshold.
 
 Odd readings or a dead endpoint? [Open an issue](https://github.com/CSzcm8788/Tokenitor/issues/new/choose) — the template walks you through the key info.
@@ -26,7 +26,7 @@ Odd readings or a dead endpoint? [Open an issue](https://github.com/CSzcm8788/To
 
 | Tool | Source | Notes |
 |------|--------|-------|
-| Claude | `https://api.anthropic.com/api/oauth/usage` | Community-found **undocumented** OAuth endpoint returning 5h / weekly used-% and reset times. This is **account-level shared usage**, so one reading covers the Claude desktop app, web, and Claude Code. Token is read from `~/.claude/.credentials.json`, falling back to the macOS Keychain — **read-only: Tokenitor never refreshes Claude Code's tokens on its behalf** (that would rotate its refresh token and log it out); when the token expires, just run any request in Claude Code and hit refresh. **⚠️ Advanced · off by default:** this endpoint uses subscription credentials that, per Anthropic's terms, are intended for Claude Code / Claude.ai only; third-party use may violate those terms. Enable it only after confirming the in-app risk prompt. |
+| Claude | `https://api.anthropic.com/api/oauth/usage` | **Community API** (not officially documented) — an OAuth usage endpoint returning 5h / weekly used-% and reset times. This is **account-level shared usage**, so one reading covers the Claude desktop app, web, and Claude Code. Token is read from `~/.claude/.credentials.json`, falling back to the macOS Keychain — **read-only: Tokenitor never refreshes Claude Code's tokens on its behalf** (that would rotate its refresh token and log it out); when the token expires, just run any request in Claude Code and hit refresh. **⚠️ Advanced · off by default:** this endpoint uses subscription credentials that, per Anthropic's terms, are intended for Claude Code / Claude.ai only; third-party use may violate those terms. Enable it only after confirming the in-app risk prompt. |
 | Codex | `~/.codex/sessions/**/*.jsonl` | Parses `rate_limits` from recent session files (primary = 5h, secondary = weekly). Fully local, no network. |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json` | Counts today's requests and estimates against ~1000/day (**local estimate**). Note: since 2026-06-18 Google discontinued the legacy Gemini CLI for personal accounts; inactive for ~36h and the row auto-hides. |
 | GitHub Copilot | `https://api.github.com/copilot_internal/user` | Uses the `gho_` login token in `~/.config/github-copilot/` to request GitHub's built-in endpoint and read `quota_snapshots.premium_interactions` (monthly premium usage remaining %, resets on the 1st UTC). Individual Pro can use the token directly. **Non-official internal endpoint**, off by default (opt-in); degrades gracefully if it changes. |
@@ -55,6 +55,21 @@ Uninstall: `bash uninstall.sh`. Build only: `bash build.sh && open dist/Tokenito
 Run the unit tests with `swift test` (redaction, tolerant JSON parsing, formatting, pricing); CI runs build + tests on every push.
 
 Enable **Launch at login** from the in-app Settings (native login item via `SMAppService`).
+
+## Command line (CLI)
+
+The same app doubles as a read-only CLI: prints current quotas once and exits — for scripts, tmux status bars, and automation (identical data pipeline as the GUI).
+
+```bash
+/Applications/Tokenitor.app/Contents/MacOS/Tokenitor --cli          # human-readable
+/Applications/Tokenitor.app/Contents/MacOS/Tokenitor --cli --json   # stable-keyed JSON
+
+# optional short command
+sudo ln -s "/Applications/Tokenitor.app/Contents/MacOS/Tokenitor" /usr/local/bin/tokenitor
+tokenitor --cli
+```
+
+> Note: Claude / Copilot read Keychain credentials in CLI mode too — the first terminal call may show an "allow Keychain access" prompt; without it only local sources (Codex / Gemini) are printed.
 
 ## Token usage page
 

@@ -27,10 +27,11 @@ enum AIKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 数据源性质（仪表 hero 卡片上的胶囊标签）："本地" 纯本地文件 / "未公开" 非官方端点。
+    /// 数据源性质（仪表 hero 卡片上的胶囊标签）："本地" 纯本地文件 / "社区" 社区通用接口
+    ///（官方未文档化；条款风险在说明页合规卡与开启前弹窗中完整披露）。
     var sourceTag: String {
         switch self {
-        case .claude, .copilot: return L("未公开", "Undocumented")
+        case .claude, .copilot: return L("社区", "Community")
         case .codex, .gemini:   return L("本地", "Local")
         }
     }

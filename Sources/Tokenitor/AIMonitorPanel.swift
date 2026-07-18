@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 三处界面（仪表 hero / 菜单栏弹层 / 刘海面板）**统一**的胶囊行：
-/// 状态（LIVE/缓存/离线）+ 来源（本地/未公开）+ 订阅档位 + 厂商服务状态。
+/// 状态（LIVE/缓存/离线）+ 来源（本地/社区）+ 订阅档位 + 厂商服务状态。
 /// 同一份快照在任何界面长相一致；改胶囊只改这里。
 struct ProviderChipsRow: View {
     let snap: ProviderSnapshot

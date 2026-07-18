@@ -6,37 +6,23 @@
 当前支持 4 个：**Claude**、**Codex**、**Gemini CLI**、**GitHub Copilot**。各 AI 只用**名称文字**标识，不含任何第三方品牌 logo。
 只显示你当前正在使用（已安装/登录）的 AI，其余自动隐藏。
 
-界面：**菜单栏优先的原生应用**。常驻**菜单栏**，左键弹出用量速览、右键精简菜单；点速览里的项打开**完整窗口**——macOS `NavigationSplitView` **分组式侧边栏**（概览：仪表 / Token；通用：语言 / 外观 / 设置；其他：关于 / 说明）+ `Form(.grouped)` 设置页。仪表页每个 AI 一块 **hero 玻璃卡片**：名称 + 状态胶囊（`LIVE` / `缓存` / `离线`）+ 来源胶囊（`本地` / `未公开`）+「更新于」相对时间胶囊，下面是**大数字统计瓦片**（每个窗口的剩余 % + 重置倒计时）与彩色用量条；鼠标移到刘海弹出紧凑面板。关窗不退出、后台继续读取，Cmd+Q 退出；深浅色跟随系统或手动切换。首次启动需同意免责声明。
+界面：**菜单栏优先的原生应用**。常驻**菜单栏**，左键弹出用量速览、右键精简菜单；点速览里的项打开**完整窗口**——macOS `NavigationSplitView` **分组式侧边栏**（概览：仪表 / Token；通用：语言 / 外观 / 设置；其他：关于 / 说明）+ `Form(.grouped)` 设置页。仪表页每个 AI 一块 **hero 玻璃卡片**：名称 + 状态胶囊（`LIVE` / `缓存` / `离线`）+ 来源胶囊（`本地` / `社区`）+「更新于」相对时间胶囊，下面是**大数字统计瓦片**（每个窗口的剩余 % + 重置倒计时）与彩色用量条；鼠标移到刘海弹出紧凑面板。关窗不退出、后台继续读取，Cmd+Q 退出；深浅色跟随系统或手动切换。首次启动需同意免责声明。
 
 <p align="center">
   <img src="docs/SCR-usage.png" width="360" alt="用量主页">
 </p>
 
-```
-菜单栏:  ◔ 图标（厂商服务异常时叠加 ● 彩色指示点）
+<p align="center">
+  <img src="docs/SCR-popover.png" width="380" alt="菜单栏弹层速览">
+</p>
 
-左键弹层（速览）:
-  Tokenitor  更新于 1分钟前
-  Claude  [LIVE] [未公开] [Pro]
-    🟢 5h            ▓▓┆▓▓┆▓░░ 剩 64%   ↻2小时31分
-    🟡 weekly        ▓▓▓░░░░░░ 剩 38%   ↻3天9小时
-  Codex   [LIVE] [本地] [Plus]
-    🟡 weekly        ▓▓▓▓░░░░░ 剩 41%   ↻5天14小时
-  ────────────────────────────
-  Token 用量
-  设置…                     ⌘,
-  刷新                      ⌘R
-  ────────────────────────────
-  使用说明
-  退出 Tokenitor            ⌘Q
+菜单栏：◔ 图标（厂商服务异常时叠加彩色指示点）。**左键**弹出上图速览（卡片 + 功能行），**右键**精简菜单（立即刷新 / 使用说明 / 退出）。
 
-右键菜单:  立即刷新 · 使用说明 · 退出 Tokenitor
-```
 
 ## 三分钟上手
 
 1. **装**：[下载 DMG](https://github.com/CSzcm8788/Tokenitor/releases/latest) 拖进「应用程序」，或一行命令 `curl -fsSL https://raw.githubusercontent.com/CSzcm8788/Tokenitor/main/get.sh | bash`。
-2. **看**：启动后菜单栏出现 ◔ 图标，左键即速览。用 Codex / Gemini 的话卡片**自动出现**（纯本地、零配置）；想看 Claude / Copilot → 设置里打开对应开关并授权一次（非官方端点，默认关）。
+2. **看**：启动后菜单栏出现 ◔ 图标，左键即速览。用 Codex / Gemini 的话卡片**自动出现**（纯本地、零配置）；想看 Claude / Copilot → 设置里打开对应开关并授权一次（社区接口，默认关）。
 3. **懂**：进度条 = 剩余配额，5 小时窗口带 20%/50% 两道刻度 · 绿/黄/红 = 充足/偏低/紧急 · `LIVE`/`缓存`/`离线` = 数据新鲜度 · ↻ = 重置倒计时。剩余量跌破阈值时会弹系统通知。
 
 遇到读数异常或端点失效？[提个 Issue](https://github.com/CSzcm8788/Tokenitor/issues/new/choose)，模板会引导你带上关键信息。
@@ -45,12 +31,12 @@
 
 | 工具 | 来源 | 说明 |
 |------|------|------|
-| Claude | `https://api.anthropic.com/api/oauth/usage` | 社区发现的**未公开** OAuth 端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里；首次会弹「允许访问钥匙串」，建议点「允许」——每次询问，不推荐「始终允许」）。对 Claude Code 的凭证**只读、绝不代它续期**，不会影响 Claude Code 自己的登录态。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
+| Claude | `https://api.anthropic.com/api/oauth/usage` | **社区通用接口**（Community API，官方未文档化）的 OAuth 用量端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里；首次会弹「允许访问钥匙串」，建议点「允许」——每次询问，不推荐「始终允许」）。对 Claude Code 的凭证**只读、绝不代它续期**，不会影响 Claude Code 自己的登录态。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数，对约 1000 次/天估算（**本地估算**，仅本机 CLI），本地 0 点重置。**注**：2026-06-18 起 Google 已对个人账号停服旧版 Gemini CLI（迁移到 Antigravity CLI `agy`）；近 36h 无活动会自动隐藏，避免显示过期数据。 |
-| GitHub Copilot | `https://api.github.com/copilot_internal/user` | 用 `~/.config/github-copilot/` 里的登录 token（gho_）请求 GitHub 内置端点，取 `quota_snapshots.premium_interactions` 的每月高级用量剩余%，每月 1 号 UTC 重置。个人 Pro 可直接用该 token 访问。属**非官方内部端点**，默认关闭、需手动开启，失效时优雅降级。 |
+| GitHub Copilot | `https://api.github.com/copilot_internal/user` | 用 `~/.config/github-copilot/` 里的登录 token（gho_）请求 GitHub 内置端点，取 `quota_snapshots.premium_interactions` 的每月高级用量剩余%，每月 1 号 UTC 重置。个人 Pro 可直接用该 token 访问。属**社区通用接口**（官方未文档化），默认关闭、需手动开启，失效时优雅降级。 |
 
-> ⚠️ Claude / Copilot 用的是非官方端点，默认关闭、需手动开启；可能随时变动或失效，失效时优雅降级（不影响纯本地的 Codex / Gemini）。
+> ⚠️ Claude / Copilot 走**社区通用接口**（官方未文档化），默认关闭、需手动开启；可能随时变动或失效，失效时优雅降级（不影响纯本地的 Codex / Gemini）。
 > 若接口字段变了，在「设置 → 调试转储原始响应」打开后，原始 JSON 会写到 `~/.tokenitor/debug/`，方便对照调整解析。
 
 ## 下载与安装
@@ -101,6 +87,27 @@ swift run -c release
 ### 开机自启（可选）
 
 系统设置 → 通用 → 登录项 → 添加 `Tokenitor.app`。
+
+## 命令行（CLI）
+
+同一个应用自带只读 CLI：打印一次当前配额后退出，供脚本 / tmux 状态栏 / 自动化用（与 GUI 完全同源的读取逻辑，零联网源不变）。
+
+```bash
+# 直接调用
+/Applications/Tokenitor.app/Contents/MacOS/Tokenitor --cli          # 人读文本
+/Applications/Tokenitor.app/Contents/MacOS/Tokenitor --cli --json   # 机器读 JSON（键名稳定）
+
+# 建议做个短命令
+sudo ln -s "/Applications/Tokenitor.app/Contents/MacOS/Tokenitor" /usr/local/bin/tokenitor
+tokenitor --cli
+```
+
+```
+Codex [live] [Plus]
+  weekly    19% left   resets in 5d 4h
+```
+
+> 注：Claude / Copilot 在 CLI 下同样读钥匙串凭证，终端首次调用可能弹「允许访问钥匙串」；未授权时只显示本地源（Codex / Gemini）。
 
 ## 前置条件
 
@@ -236,7 +243,7 @@ mv ~/.claude/settings.json.off ~/.claude/settings.json   # 放回，恢复日常
 
 ## 刘海悬停 mini 面板
 
-鼠标移到屏幕顶部**刘海区域**，会在其正下方弹出一个紧凑的半透明面板，显示各 AI 窗口的剩余百分比与重置倒计时；移开自动收起。无刘海的机型则悬停顶部中央触发。
+鼠标移到屏幕顶部**刘海区域**，会在其正下方弹出一个紧凑的半透明面板，显示各 AI 窗口的剩余百分比与重置倒计时；移开自动收起，**点面板任意位置**打开完整主窗口。无刘海的机型则悬停顶部中央触发。
 
 实现：全局监听鼠标移动，判断光标是否落在刘海矩形（用屏幕 `auxiliaryTopLeftArea/RightArea` 推算刘海宽度）或面板范围内。
 
@@ -273,6 +280,16 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 [MIT](LICENSE) © 2026 CSzcm8788。可自由使用 / 修改 / 分发（含商用），需保留版权声明；软件按「原样」提供，不含任何担保。
 
 ## 更新日志
+
+### 1.5.0
+
+功能版本：CLI + 交互修复 + 文档口径。
+
+- **命令行模式**：`Tokenitor --cli [--json]` 打印一次配额后退出（详见「命令行」章节）——同一可执行文件、同一读取逻辑，无新依赖。
+- **修复弹层按钮悬停延迟**：菜单栏弹层常在应用未激活时打开，SwiftUI 默认 hover 跟踪（仅 key window 生效）会滞后丢帧；功能行改用 `NSTrackingArea(.activeAlways)` 原生跟踪，高亮即时跟手。
+- **刘海面板点击直达**：点面板任意位置打开完整主窗口（仪表页）并收起面板。
+- **文档口径统一**：数据来源统一表述为「社区通用接口（官方未文档化）」，卡片胶囊由「未公开」改为「社区」；合规说明与开启前的风险确认保持原有完整披露。
+- **README 换真实截图**：仪表页快照更新至当前样式，弹层示意图替换为真实截图。
 
 ### 1.4.8
 
@@ -407,7 +424,7 @@ Token 页重构（成本叙事优先）+ 订阅档位胶囊。
 
 ### 1.1.0
 
-仪表界面重设计（对标 TokenBar / CodexBar 一类工具的信息层级）。
+仪表界面重设计（对标同类菜单栏用量工具的信息层级）。
 
 - **侧边栏分组**：概览（仪表 / Token）· 通用（语言 / 外观 / 设置）· 其他（关于 / 说明），小标签分组导航。
 - **仪表 hero 卡片**：每个 AI 卡片升级为「标题 + 胶囊行 + 统计瓦片 + 用量条」四层结构——状态胶囊（`LIVE` 实时 / `缓存` 限流展示旧数据 / `离线`）、来源胶囊（`本地` / `未公开`）、「更新于」相对时间胶囊；每个窗口一块**大数字瓦片**（剩余 % 按档位着色 + 重置倒计时），下方保留彩色用量条。

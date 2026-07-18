@@ -61,3 +61,34 @@ extension View {
     /// 悬停反馈（放大 + 提亮 + 手型光标）。
     func pressableHover(scale: CGFloat = 1.03) -> some View { modifier(PressableHover(scale: scale)) }
 }
+
+/// 弹层可靠版 hover 跟踪：菜单栏弹层常在 **app 未激活** 时打开，SwiftUI `.onHover` 的默认
+/// tracking（activeInKeyWindow）此时会迟钝、丢失进出事件——表现为高亮跟不上鼠标。
+/// 换成 NSTrackingArea(.activeAlways)：无论窗口激活与否都即时回调。
+struct ActiveHoverView: NSViewRepresentable {
+    let onChange: (Bool) -> Void
+    func makeNSView(context: Context) -> HoverNSView { HoverNSView(onChange: onChange) }
+    func updateNSView(_ v: HoverNSView, context: Context) { v.onChange = onChange }
+
+    final class HoverNSView: NSView {
+        var onChange: (Bool) -> Void
+        init(onChange: @escaping (Bool) -> Void) { self.onChange = onChange; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { nil }
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self, userInfo: nil))
+        }
+        override func mouseEntered(with event: NSEvent) { onChange(true) }
+        override func mouseExited(with event: NSEvent) { onChange(false) }
+    }
+}
+
+extension View {
+    /// `.onHover` 的弹层可靠版（窗口未激活也即时响应）。
+    func activeHover(_ onChange: @escaping (Bool) -> Void) -> some View {
+        background(ActiveHoverView(onChange: onChange))
+    }
+}

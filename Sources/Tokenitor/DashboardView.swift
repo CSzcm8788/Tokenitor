@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.0", L("命令行模式 --cli · 修复弹层悬停延迟 · 刘海点击直达主窗口 · 文档口径统一", "CLI mode (--cli) · fixed popover hover lag · notch panel click-through · unified docs wording")),
         ("1.4.8", L("分段刻度仅保留 5h 窗口 · 说明页灰度统一 · 快速入门措辞打磨", "Tick marks now 5h-window only · unified guide-page grays · quick-start copy polish")),
         ("1.4.7", L("分段式用量条（20/50 刻度）· Codex 重置额度胶囊 · 失败自动退避 · 快速入门", "Segmented bars (20/50 ticks) · Codex reset-credits chip · failure backoff · quick start")),
         ("1.4.6", L("修复 Codex 用量滞后/不准：增量读取免疫巨行 · 数据时间胶囊 · 关闭 App Nap", "Fix Codex lag: incremental reads immune to giant lines · data-age chip · App Nap off")),
@@ -437,6 +438,6 @@ private struct MenuRow: View {
             .foregroundStyle(hovering ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .activeHover { hovering = $0 }   // 弹层可能在 app 未激活时打开，普通 onHover 会滞后
     }
 }
