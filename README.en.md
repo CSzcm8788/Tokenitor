@@ -7,6 +7,10 @@ A native macOS menu-bar app that shows the **remaining quota** of your AI coding
 Supported today: **Claude**, **Codex**, **Gemini CLI**, **GitHub Copilot**. Each AI is identified by its **name only** — no third-party brand logos. Only the tools you actually use (installed / logged in) are shown; the rest are hidden automatically.
 
 <p align="center">
+  <img src="docs/demo.gif" width="640" alt="10-second tour (3.5x)">
+</p>
+
+<p align="center">
   <img src="docs/SCR-usage.png" width="360" alt="Usage dashboard">
 </p>
 
