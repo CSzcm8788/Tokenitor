@@ -103,17 +103,7 @@ codesign --force --options runtime --timestamp \
 codesign --verify --strict --verbose=2 "$APP"
 echo "  签名校验通过"
 
-# 4) 公证（打 zip 提交，等待结果）
-echo "==> 公证（notarytool，等待中，约 1-5 分钟）…"
-ditto -c -k --keepParent "$APP" "dist/${APP_NAME}.zip"
-xcrun notarytool submit "dist/${APP_NAME}.zip" --keychain-profile "$NOTARY_PROFILE" --wait
-
-# 5) 盖章
-echo "==> 盖公证章…"
-xcrun stapler staple "$APP"
-xcrun stapler validate "$APP"
-
-# 6) 出 DMG（hdiutil，免额外依赖）
+# 4) 出 DMG（hdiutil，免额外依赖）——先打包，再**只公证这一个**产物
 echo "==> 制作 DMG…"
 STAGE="dist/dmg"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
@@ -121,12 +111,55 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Tokenitor" -srcfolder "$STAGE" -ov -format UDZO "dist/${APP_NAME}.dmg" >/dev/null
 rm -rf "$STAGE"
-
-# 7) DMG 也签名 + 公证 + 盖章
-echo "==> 签名 + 公证 DMG…"
 codesign --force --sign "$DEVID_APP" "dist/${APP_NAME}.dmg"
-xcrun notarytool submit "dist/${APP_NAME}.dmg" --keychain-profile "$NOTARY_PROFILE" --wait
+
+# 5) 公证：**一次提交**（DMG 内含已签名的 .app，公证会记录其中每个可执行文件的 cdhash，
+#    因此随后可以给 .app 与 DMG 分别盖章，无需再单独公证一次 app.zip）。
+#    Apple 建议每账号每天不超过 75 次公证；此前每次发版提交 2 次是无谓的浪费。
+MARKER="dist/.notarized-${HEAD_SHA}"
+if [ -f "${MARKER}" ] && xcrun stapler validate "dist/${APP_NAME}.dmg" >/dev/null 2>&1; then
+  echo "==> 本次提交已公证过且 DMG 已盖章，跳过重复公证"
+else
+  echo "==> 公证（notarytool，单次提交，通常 1-5 分钟）…"
+  SUB_ID="$(xcrun notarytool submit "dist/${APP_NAME}.dmg" --keychain-profile "$NOTARY_PROFILE" \
+              --output-format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+  if [ -z "${SUB_ID}" ]; then echo "✗ 提交失败（未拿到 submission id）"; exit 1; fi
+  echo "  submission id: ${SUB_ID}"
+
+  # 轮询而不是依赖 --wait 的长连接：notarytool 的等待连接被网络掐断时会报
+  # HTTPClientError.connectTimeout，此时任务其实已在 Apple 侧排队——重新提交只会白白
+  # 消耗额度。这里改为查状态，连接失败就下一轮再查。
+  DEADLINE=$(( $(date +%s) + 3600 ))
+  while :; do
+    ST="$(xcrun notarytool info "${SUB_ID}" --keychain-profile "$NOTARY_PROFILE" \
+            --output-format json 2>/dev/null | python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("status",""))
+except Exception: print("")' )"
+    case "${ST}" in
+      Accepted) echo "  状态: Accepted"; break ;;
+      "Invalid"|"Rejected")
+        echo "✗ 公证被拒，日志："
+        xcrun notarytool log "${SUB_ID}" --keychain-profile "$NOTARY_PROFILE" 2>&1 | head -40
+        exit 1 ;;
+      *) : ;;   # In Progress / 查询失败 → 继续等
+    esac
+    if [ "$(date +%s)" -gt "${DEADLINE}" ]; then
+      echo "✗ 公证超过 1 小时仍未完成（Apple 侧排队）。任务仍在进行，稍后可用："
+      echo "    xcrun notarytool info ${SUB_ID} --keychain-profile ${NOTARY_PROFILE}"
+      echo "  完成后重跑 release.sh 即可（会自动跳过重复公证）。"
+      exit 1
+    fi
+    sleep 20
+  done
+  touch "${MARKER}"
+fi
+
+# 6) 盖章：DMG 与 .app 都盖（.app 的票据由上面那次 DMG 公证一并签发，stapler 按 cdhash 取回）
+echo "==> 盖公证章…"
 xcrun stapler staple "dist/${APP_NAME}.dmg"
+xcrun stapler staple "$APP"
+xcrun stapler validate "$APP"
+xcrun stapler validate "dist/${APP_NAME}.dmg"
 
 echo ""
 echo "完成 ✅  可分发文件: dist/${APP_NAME}.dmg（已签名 + 已公证 + 已盖章）"
