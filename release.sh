@@ -60,7 +60,7 @@ if ! TEST_OUT="$(swift test 2>&1)"; then
   echo "${TEST_OUT}" | tail -25
   exit 1
 fi
-echo "${TEST_OUT}" | grep -E "Executed [0-9]+ tests" | tail -1 | sed 's/^[[:space:]]*/  /
+echo "${TEST_OUT}" | grep -E "Executed [0-9]+ tests" | tail -1 | sed 's/^[[:space:]]*/  /'
 
 # 1) 自动探测 Developer ID Application 身份
 if [ -z "${DEVID_APP:-}" ]; then
