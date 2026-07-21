@@ -53,9 +53,14 @@ fi
 
 # e. 测试必须全绿
 echo "==> 运行测试…"
-if ! swift test 2>&1 | tail -3; then
-  echo "✗ 测试未通过，中止发布"; exit 1
+# 直接取 swift test 的退出码（不经管道，避免退出状态被 tail 之类掩盖）；
+# 只在失败时打印尾部日志，成功时打印 XCTest 的用例数汇总行。
+if ! TEST_OUT="$(swift test 2>&1)"; then
+  echo "✗ 测试未通过，中止发布"
+  echo "${TEST_OUT}" | tail -25
+  exit 1
 fi
+echo "${TEST_OUT}" | grep -E "Executed [0-9]+ tests" | tail -1 | sed 's/^[[:space:]]*/  /
 
 # 1) 自动探测 Developer ID Application 身份
 if [ -z "${DEVID_APP:-}" ]; then
