@@ -118,3 +118,64 @@ final class CLIOutputTests: XCTestCase {
         XCTAssertTrue(CLIRunner.jsonString([.failed("Claude", "boom")]).contains("\"offline\""))
     }
 }
+
+/// Gemini 计数：logs.json 与 chats/*.jsonl 记的是同一批提问但时间戳差几秒，
+/// 合并计数会让用量成倍虚高——这里用真实数据形态的 fixture 守住。
+final class GeminiCountTests: XCTestCase {
+
+    private func makeDir() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gemini-test-\(UUID().uuidString)/proj", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("chats"),
+                                                withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// 两个来源都记了同两次提问（时间戳相差 4 秒）→ 必须算 2 次，不是 4 次。
+    func testDoesNotDoubleCountAcrossSources() throws {
+        let dir = try makeDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let day = "2026-07-21"
+        try """
+        [{"type":"user","message":"你是什么模型","timestamp":"\(day)T13:55:43.751Z"},
+         {"type":"user","message":"能自动更新吗","timestamp":"\(day)T13:57:07.284Z"}]
+        """.write(to: dir.appendingPathComponent("logs.json"), atomically: true, encoding: .utf8)
+        // 会话文件：同两次提问，时间戳晚 4 秒 + CLI 注入的引导消息
+        try """
+        {"$set":{"messages":[{"type":"user","timestamp":"\(day)T13:52:02.887Z","content":[{"text":"<session_context>\\nThis is the Gemini CLI."}]}]}}
+        {"type":"user","timestamp":"\(day)T13:55:47.661Z","content":[{"text":"你是什么模型"}]}
+        {"type":"user","timestamp":"\(day)T13:57:10.802Z","content":[{"text":"能自动更新吗"}]}
+        """.write(to: dir.appendingPathComponent("chats/session.jsonl"), atomically: true, encoding: .utf8)
+
+        let start = ISO8601DateFormatter().date(from: "\(day)T00:00:00Z")!
+        XCTAssertEqual(GeminiProvider.countToday(userDirs: [dir], todayStart: start), 2,
+                       "同一批提问不能因两个来源被数两遍")
+    }
+
+    /// logs.json 缺失（新版 CLI 可能不再写）→ 回退扫会话文件，且不把引导消息算作请求。
+    func testFallsBackToSessionFilesAndSkipsBootstrap() throws {
+        let dir = try makeDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let day = "2026-07-21"
+        try """
+        {"type":"user","timestamp":"\(day)T13:52:02.887Z","content":[{"text":"<session_context>\\nThis is the Gemini CLI."}]}
+        {"type":"user","timestamp":"\(day)T13:55:47.661Z","content":[{"text":"你是什么模型"}]}
+        """.write(to: dir.appendingPathComponent("chats/session.jsonl"), atomically: true, encoding: .utf8)
+
+        let start = ISO8601DateFormatter().date(from: "\(day)T00:00:00Z")!
+        XCTAssertEqual(GeminiProvider.countToday(userDirs: [dir], todayStart: start), 1,
+                       "引导消息不是用户请求")
+    }
+
+    /// 昨天的记录不计入今天。
+    func testOnlyCountsToday() throws {
+        let dir = try makeDir()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        try """
+        [{"type":"user","message":"旧的","timestamp":"2026-07-20T10:00:00.000Z"},
+         {"type":"user","message":"今天的","timestamp":"2026-07-21T10:00:00.000Z"}]
+        """.write(to: dir.appendingPathComponent("logs.json"), atomically: true, encoding: .utf8)
+        let start = ISO8601DateFormatter().date(from: "2026-07-21T00:00:00Z")!
+        XCTAssertEqual(GeminiProvider.countToday(userDirs: [dir], todayStart: start), 1)
+    }
+}

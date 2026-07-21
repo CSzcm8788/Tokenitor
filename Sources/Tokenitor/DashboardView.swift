@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.3", L("修复 Gemini 用量翻倍：同一批提问被两个本地来源各数一遍", "Fix Gemini double-counting: the same prompts were counted once per local source")),
         ("1.5.2", L("加固：声明口径校正 · Copilot 风险确认 · 错误数据不再伪装成正常 · 空状态指引", "Hardening: honest disclaimer · Copilot risk gate · no more fake-healthy data · actionable empty state")),
         ("1.5.1", L("关窗释放视图内存（后台 37MB，重开 46ms 无感）· CLI 补全重置额度/数据时间", "Release view memory on close (37MB resident, 46ms rebuild) · CLI resets/data-age fields")),
         ("1.5.0", L("命令行模式 --cli · 修复弹层悬停延迟 · 刘海点击直达主窗口 · 文档口径统一", "CLI mode (--cli) · fixed popover hover lag · notch panel click-through · unified docs wording")),

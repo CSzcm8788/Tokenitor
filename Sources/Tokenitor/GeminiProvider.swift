@@ -58,46 +58,73 @@ final class GeminiProvider: UsageProvider {
 
     /// 统计今天（本地日）的用户请求数：扫描 logs.json + 各 session jsonl，
     /// 取 type/role=="user" 且时间戳为今天的条目，用时间戳去重。
+    /// 统计今天（本地日）的用户请求数。
+    /// **同一项目目录内以 `logs.json` 为准**，只有它缺失或今日无记录时才回退扫 `chats/*.jsonl`：
+    /// 两个来源记的是同一批提问，但时间戳相差数秒（实测约 4s），按时间戳去重根本对不上，
+    /// 合并计数会让用量成倍虚高（实测 2 次提问被数成 4 次）。
     private func todayRequestCount() -> Double {
         let fm = FileManager.default
         let tmp = geminiDir.appendingPathComponent("tmp")
         guard let userDirs = try? fm.contentsOfDirectory(at: tmp,
                                                           includingPropertiesForKeys: nil) else { return 0 }
-        let todayStart = Calendar.current.startOfDay(for: Date())
+        return Double(Self.countToday(userDirs: userDirs,
+                                      todayStart: Calendar.current.startOfDay(for: Date())))
+    }
+
+    /// 计数主体（internal 供测试直接喂临时目录，覆盖「双源同一提问」的去重场景）。
+    static func countToday(userDirs: [URL], todayStart: Date) -> Int {
+        let fm = FileManager.default
         var seen = Set<String>()
 
         for ud in userDirs {
-            // logs.json（数组）
+            var perDir = Set<String>()
+
+            // 主源：logs.json（CLI 记录的用户提问流水）
             let logs = ud.appendingPathComponent("logs.json")
             if let data = try? Data(contentsOf: logs),
                let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
-                collectUserEvents(arr, todayStart: todayStart, into: &seen)
+                collectUserEvents(arr, todayStart: todayStart, into: &perDir)
             }
-            // chats/*.jsonl
-            let chats = ud.appendingPathComponent("chats")
-            if let files = try? fm.contentsOfDirectory(at: chats, includingPropertiesForKeys: nil) {
-                for f in files where f.pathExtension == "jsonl" {
-                    guard let text = try? String(contentsOf: f, encoding: .utf8) else { continue }
-                    for line in text.split(separator: "\n") {
-                        guard let d = line.data(using: .utf8),
-                              let o = try? JSONSerialization.jsonObject(with: d) else { continue }
-                        collectUserEvents([o], todayStart: todayStart, into: &seen)
+
+            // 回退：logs.json 缺失或今日无记录时才扫会话文件（新版 CLI 可能不再写 logs.json）
+            if perDir.isEmpty {
+                let chats = ud.appendingPathComponent("chats")
+                if let files = try? fm.contentsOfDirectory(at: chats, includingPropertiesForKeys: nil) {
+                    for f in files where f.pathExtension == "jsonl" {
+                        guard let text = try? String(contentsOf: f, encoding: .utf8) else { continue }
+                        for line in text.split(separator: "\n") {
+                            guard let d = line.data(using: .utf8),
+                                  let o = try? JSONSerialization.jsonObject(with: d) else { continue }
+                            collectUserEvents([o], todayStart: todayStart, into: &perDir)
+                        }
                     }
                 }
             }
+            seen.formUnion(perDir)
         }
-        return Double(seen.count)
+        return seen.count
     }
 
-    private func collectUserEvents(_ items: [Any], todayStart: Date, into seen: inout Set<String>) {
+    static func collectUserEvents(_ items: [Any], todayStart: Date, into seen: inout Set<String>) {
         for case let o as [String: Any] in items {
             let kind = (o["type"] as? String) ?? (o["role"] as? String) ?? ""
             guard kind == "user" else { continue }
+            guard !isBootstrapMessage(o) else { continue }   // CLI 自动注入的上下文不是用户请求
             guard let tsStr = o["timestamp"] as? String,
                   let ts = Self.parseISO(tsStr) else { continue }
             guard ts >= todayStart else { continue }     // 仅今天
-            seen.insert(tsStr)                            // 用时间戳去重（跨文件同条只算一次）
+            seen.insert(tsStr)                            // 用时间戳去重（同源跨文件同条只算一次）
         }
+    }
+
+    /// CLI 会话开头自动注入的 `<session_context>` 上下文消息：类型是 user，但不是用户发起的请求。
+    static func isBootstrapMessage(_ o: [String: Any]) -> Bool {
+        var text = o["message"] as? String ?? ""
+        if text.isEmpty, let parts = o["content"] as? [[String: Any]] {
+            text = parts.compactMap { $0["text"] as? String }.joined()
+        }
+        if text.isEmpty, let c = o["content"] as? String { text = c }
+        return text.hasPrefix("<session_context>")
     }
 
     private static let isoFrac: ISO8601DateFormatter = {

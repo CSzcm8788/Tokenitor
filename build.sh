@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Tokenitor"
 BUNDLE_ID="com.tokenitor.app"
-VERSION="1.5.2"
+VERSION="1.5.3"
 BUILD_NUM="$(date +%Y%m%d%H%M)"   # 每次构建递增的 build 号：让 macOS 注意到图标变化、刷新通知图标缓存
 # 产物溯源：把构建时的源码 commit 写进 Info.plist，发布时可核对「DMG 来自哪次提交」
 GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"

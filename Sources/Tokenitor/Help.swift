@@ -34,7 +34,7 @@ struct HelpView: View {
                     rowDivider
                     providerRow("Gemini", "~/.gemini/tmp/<user>/logs.json",
                                 [(L("本地估算", "Local estimate"), .ok)],
-                                L("今日请求数 ÷ 每日额度的**本地估算**，0 点重置。官方额度按账号类型浮动（约 250–2000/天）且本地读不到，分母可在设置里调整（默认 1000）。个人账号的旧版 Gemini CLI 已于 2026-06 迁移至 Antigravity CLI，本项仅在检测到 `~/.gemini` 近期活动时显示。", "A **local estimate**: today\u{2019}s request count ÷ your daily limit, resetting at local midnight. The official limit varies by account type (~250–2000/day) and isn\u{2019}t readable locally, so the divisor is adjustable in Settings (default 1000). Personal accounts moved from the legacy Gemini CLI to Antigravity CLI in June 2026; this card only appears when `~/.gemini` shows recent activity."))
+                                L("今日请求数 ÷ 每日额度的**本地估算**，0 点重置；以 `logs.json` 为准计数（会话文件仅在它缺失时兜底，避免同一批提问被数两遍）。官方额度按账号类型浮动（约 250–2000/天）且本地读不到，分母可在设置里调整（默认 1000）。个人账号的旧版 Gemini CLI 已于 2026-06 迁移至 Antigravity CLI，本项仅在检测到 `~/.gemini` 近期活动时显示。", "A **local estimate**: today\u{2019}s request count ÷ your daily limit, resetting at local midnight; counted from `logs.json` (session files are only a fallback, so the same prompts aren\u{2019}t counted twice). The official limit varies by account type (~250–2000/day) and isn\u{2019}t readable locally, so the divisor is adjustable in Settings (default 1000). Personal accounts moved from the legacy Gemini CLI to Antigravity CLI in June 2026; this card only appears when `~/.gemini` shows recent activity."))
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
                                 [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
