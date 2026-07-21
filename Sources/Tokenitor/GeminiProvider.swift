@@ -15,7 +15,9 @@ final class GeminiProvider: UsageProvider {
     private let geminiDir: URL = {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini")
     }()
-    private let dailyLimit = 1000.0
+    /// 每日额度（估算分母）：官方额度按账号类型/时段在 250–2000 之间浮动且本地不可读，
+    /// 故取用户在设置里选定的值（默认 1000），并在界面上明确标注是本地估算。
+    private var dailyLimit: Double { Settings.shared.geminiDailyLimit }
     private let staleAfter: TimeInterval = 36 * 3600   // 超过 36h 无活动 → 视为未在使用
 
     func fetch(completion: @escaping (ProviderSnapshot) -> Void) {
@@ -29,11 +31,13 @@ final class GeminiProvider: UsageProvider {
                 completion(.absent(self.displayName)); return
             }
             let used = self.todayRequestCount()
-            let pct = max(0, min(100, used / self.dailyLimit * 100))
+            let pct = max(0, min(100, used / max(1, self.dailyLimit) * 100))
             let w = UsageWindow(usedPercent: pct, resetsAt: self.nextLocalMidnight(), label: "daily")
+            let limit = self.dailyLimit
             completion(ProviderSnapshot(name: self.displayName, windows: [w], ok: true,
                                         error: nil,
-                                        note: "今日约 \(Int(used))/\(Int(self.dailyLimit)) 次 · 本地估算"))
+                                        note: L("今日约 \(Int(used))/\(Int(limit)) 次 · 本地估算（额度可在设置调整）",
+                                                "~\(Int(used))/\(Int(limit)) requests today · local estimate (limit adjustable in Settings)")))
         }
     }
 

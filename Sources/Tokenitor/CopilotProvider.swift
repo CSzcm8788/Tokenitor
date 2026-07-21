@@ -48,16 +48,29 @@ final class CopilotProvider: UsageProvider {
         let snap = (snaps?["premium_interactions"] as? [String: Any])
             ?? (snaps?["chat"] as? [String: Any])
 
-        var windows: [UsageWindow] = []
-        if let snap = snap, (snap["unlimited"] as? Bool) != true {
-            let pctRemain = JSON.double(snap["percent_remaining"])
-                ?? (100 - (JSON.double(snap["percent_used"]) ?? 0))
-            let used = max(0, min(100, 100 - max(0, min(100, pctRemain))))
-            windows = [UsageWindow(usedPercent: used, resetsAt: reset, label: "premium")]
-        }
         // 不限量套餐：无窗口，仅展示套餐胶囊（卡片不再挂说明小字）
+        if let snap, (snap["unlimited"] as? Bool) == true {
+            return ProviderSnapshot(name: displayName, windows: [], ok: true, error: nil, plan: plan)
+        }
+        // 必须真读到百分比字段才出数字：字段缺失时**绝不**兜底成「剩余 100%」——
+        // 接口一旦改字段，宁可显示「读取失败」，也不能让人以为额度还满着。
+        guard let snap, let used = Self.usedPercent(from: snap) else {
+            return .failed(displayName, L("接口字段有变，未能读到额度百分比",
+                                          "Endpoint fields changed; couldn\u{2019}t read the quota percentage"))
+        }
+        return ProviderSnapshot(name: displayName,
+                                windows: [UsageWindow(usedPercent: used, resetsAt: reset, label: "premium")],
+                                ok: true, error: nil, plan: plan)
+    }
 
-        return ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil, plan: plan)
+    /// 从额度块解析「已用百分比」；两个百分比字段都缺 → nil（调用方按解析失败处理）。
+    /// internal 供测试覆盖：正常 percent_remaining / 仅 percent_used / 字段全缺 / 越界值。
+    static func usedPercent(from snap: [String: Any]) -> Double? {
+        let remain: Double
+        if let r = JSON.double(snap["percent_remaining"]) { remain = r }
+        else if let u = JSON.double(snap["percent_used"]) { remain = 100 - u }
+        else { return nil }
+        return max(0, min(100, 100 - max(0, min(100, remain))))
     }
 
     /// "2026-08-01" → 该日 00:00 UTC。

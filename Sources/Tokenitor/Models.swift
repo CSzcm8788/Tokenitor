@@ -58,6 +58,12 @@ protocol UsageProvider {
     var enabled: Bool { get }
     /// 异步抓取一次快照（completion 在任意线程回调）
     func fetch(completion: @escaping (ProviderSnapshot) -> Void)
+    /// 清掉数据源自身的退避/冷却（手动刷新时调用）。默认无操作。
+    func resetBackoff()
+}
+
+extension UsageProvider {
+    func resetBackoff() {}
 }
 
 /// 颜色档位：根据剩余百分比决定状态色。

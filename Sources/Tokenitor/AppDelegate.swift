@@ -370,7 +370,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refresh(force: Bool = false) {
-        if force { backoffUntil.removeAll(); failStreak.removeAll() }
+        if force {
+            backoffUntil.removeAll(); failStreak.removeAll()
+            providers.forEach { $0.resetBackoff() }   // 连数据源自身的限流冷却一并清掉
+        }
         if store.page == .tokens { refreshTokens() }   // 仅在查看 Token 页时随主刷新更新 token UI（其余靠低频 tick）
         // 正在抓取时不并发；记一个挂起标记，本轮结束后自动再抓一次（确保新开启的 AI 立即出现）
         if isFetching { pendingRefresh = true; return }
@@ -462,6 +465,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishFetch() {
         isFetching = false
         store.isRefreshing = false
+        store.markFetchComplete()
         if pendingRefresh {
             pendingRefresh = false
             refresh()

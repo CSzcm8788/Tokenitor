@@ -56,6 +56,11 @@ enum CLIRunner {
     // MARK: - JSON 输出（机器读；键名稳定，供脚本依赖）
 
     private static func printJSON(_ snaps: [ProviderSnapshot]) {
+        print(jsonString(snaps))
+    }
+
+    /// 生成 JSON 文本（键名对脚本是稳定契约）。internal 供测试断言字段形状。
+    static func jsonString(_ snaps: [ProviderSnapshot]) -> String {
         let iso = ISO8601DateFormatter()
         let arr: [[String: Any]] = snaps.map { s in
             var d: [String: Any] = [
@@ -77,10 +82,9 @@ enum CLIRunner {
             if let err = s.error { d["error"] = err }
             return d
         }
-        if let data = try? JSONSerialization.data(withJSONObject: arr, options: [.prettyPrinted, .sortedKeys]),
-           let str = String(data: data, encoding: .utf8) {
-            print(str)
-        }
+        guard let data = try? JSONSerialization.data(withJSONObject: arr, options: [.prettyPrinted, .sortedKeys]),
+              let str = String(data: data, encoding: .utf8) else { return "[]" }
+        return str
     }
 
     private static func status(_ s: ProviderSnapshot) -> String {

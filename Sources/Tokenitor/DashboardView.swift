@@ -146,7 +146,7 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if store.snapshots.isEmpty {
-                    Text(L("正在获取用量…", "Fetching usage…")).foregroundStyle(.secondary).padding(.vertical, 8)
+                    EmptyStateView(hasFetched: store.hasFetched) { store.page = .settings }
                 } else {
                     ForEach(store.snapshots, id: \.name) { snap in
                         AIMonitorPanel(snap: snap,
@@ -187,6 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.2", L("加固：声明口径校正 · Copilot 风险确认 · 错误数据不再伪装成正常 · 空状态指引", "Hardening: honest disclaimer · Copilot risk gate · no more fake-healthy data · actionable empty state")),
         ("1.5.1", L("关窗释放视图内存（后台 37MB，重开 46ms 无感）· CLI 补全重置额度/数据时间", "Release view memory on close (37MB resident, 46ms rebuild) · CLI resets/data-age fields")),
         ("1.5.0", L("命令行模式 --cli · 修复弹层悬停延迟 · 刘海点击直达主窗口 · 文档口径统一", "CLI mode (--cli) · fixed popover hover lag · notch panel click-through · unified docs wording")),
         ("1.4.8", L("分段刻度仅保留 5h 窗口 · 说明页灰度统一 · 快速入门措辞打磨", "Tick marks now 5h-window only · unified guide-page grays · quick-start copy polish")),
@@ -389,7 +390,9 @@ struct PopoverGlanceView: View {
                 Spacer()
             }
             if store.snapshots.isEmpty {
-                Text(L("正在获取用量…", "Fetching usage…")).font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
+                EmptyStateView(hasFetched: store.hasFetched, compact: true) {
+                    store.onOpenWindow(.settings)
+                }
             } else {
                 ForEach(store.snapshots, id: \.name) { snap in
                     AIMonitorPanel(snap: snap, warnAt: Settings.shared.warnAt, critAt: Settings.shared.critAt,

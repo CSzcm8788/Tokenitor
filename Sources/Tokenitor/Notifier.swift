@@ -101,35 +101,43 @@ final class AlertEngine {
     /// key -> 已触发的最低档（0=无, 1=warn, 2=crit）
     private var fired: [String: Int] = [:]
 
+    /// 是否允许基于这份快照告警：失败的、以及 stale（限流/断网时的缓存旧数据）都不算——
+    /// 不能拿几小时前的数字推「即将耗尽」。internal 供测试。
+    static func alertable(_ snap: ProviderSnapshot) -> Bool { snap.ok && !snap.isStale }
+
+    /// 纯决策：给定剩余量、阈值与「已触发档位」，返回本次该触发的档位（nil = 不触发）
+    /// 与更新后的档位。抽出来是为了让「只响一次 / 回升后重新武装」这条规则可被测试覆盖。
+    /// internal 供测试。
+    static func decide(remaining: Double, warn: Double, crit: Double,
+                       previouslyFired prev: Int) -> (fire: Int?, newState: Int) {
+        if remaining <= crit { return prev < 2 ? (2, 2) : (nil, prev) }
+        if remaining <= warn { return prev < 1 ? (1, 1) : (nil, prev) }
+        return (nil, 0)   // 回升到阈值以上 → 重置，可再次触发
+    }
+
     func evaluate(_ snapshots: [ProviderSnapshot]) {
         guard Settings.shared.notificationsEnabled else { return }
         let warn = Settings.shared.warnAt
         let crit = Settings.shared.critAt
 
-        // 跳过 stale（限流/断网时的缓存旧数据）：不基于几小时前的快照推「即将耗尽」告警
-        for snap in snapshots where snap.ok && !snap.isStale {
+        for snap in snapshots where Self.alertable(snap) {
             for w in snap.windows {
                 let key = "\(snap.name)|\(w.label)"
                 let remaining = w.remainingPercent
                 let prev = fired[key] ?? 0
+                let (fire, newState) = Self.decide(remaining: remaining, warn: warn, crit: crit,
+                                                   previouslyFired: prev)
+                fired[key] = newState
+                guard let fire else { continue }
 
-                if remaining <= crit {
-                    if prev < 2 {
-                        Notifier.shared.notify(
-                            title: L("⚠️ \(snap.name) \(w.label) 剩余用量即将耗尽", "⚠️ \(snap.name) \(w.label) almost exhausted"),
-                            body: L("仅剩 \(Int(remaining))%，\(resetText(w))", "Only \(Int(remaining))% left, \(resetText(w))"))
-                        fired[key] = 2
-                    }
-                } else if remaining <= warn {
-                    if prev < 1 {
-                        Notifier.shared.notify(
-                            title: L("🟡 \(snap.name) \(w.label) 剩余用量偏低", "🟡 \(snap.name) \(w.label) running low"),
-                            body: L("剩余 \(Int(remaining))%，\(resetText(w))", "\(Int(remaining))% left, \(resetText(w))"))
-                        fired[key] = 1
-                    }
+                if fire == 2 {
+                    Notifier.shared.notify(
+                        title: L("⚠️ \(snap.name) \(w.label) 剩余用量即将耗尽", "⚠️ \(snap.name) \(w.label) almost exhausted"),
+                        body: L("仅剩 \(Int(remaining))%，\(resetText(w))", "Only \(Int(remaining))% left, \(resetText(w))"))
                 } else {
-                    // 恢复，重置
-                    fired[key] = 0
+                    Notifier.shared.notify(
+                        title: L("🟡 \(snap.name) \(w.label) 剩余用量偏低", "🟡 \(snap.name) \(w.label) running low"),
+                        body: L("剩余 \(Int(remaining))%，\(resetText(w))", "\(Int(remaining))% left, \(resetText(w))"))
                 }
             }
         }

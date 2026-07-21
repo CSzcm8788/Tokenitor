@@ -34,15 +34,15 @@ struct HelpView: View {
                     rowDivider
                     providerRow("Gemini", "~/.gemini/tmp/<user>/logs.json",
                                 [(L("本地估算", "Local estimate"), .ok)],
-                                L("今日请求数，对约 1000/天估算，0 点重置。", "Counts today\u{2019}s requests against ~1000/day; resets at local midnight."))
+                                L("今日请求数 ÷ 每日额度的**本地估算**，0 点重置。官方额度按账号类型浮动（约 250–2000/天）且本地读不到，分母可在设置里调整（默认 1000）。个人账号的旧版 Gemini CLI 已于 2026-06 迁移至 Antigravity CLI，本项仅在检测到 `~/.gemini` 近期活动时显示。", "A **local estimate**: today\u{2019}s request count ÷ your daily limit, resetting at local midnight. The official limit varies by account type (~250–2000/day) and isn\u{2019}t readable locally, so the divisor is adjustable in Settings (default 1000). Personal accounts moved from the legacy Gemini CLI to Antigravity CLI in June 2026; this card only appears when `~/.gemini` shows recent activity."))
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
                                 [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
-                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存 · 连续失败自动退避 10 分钟（手动刷新即重试）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited; backs off for 10 min after repeated failures (manual refresh retries immediately)."))
+                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存（缓存超过 24 小时即不再显示，改报读取失败）· 连续失败自动退避 10 分钟（手动刷新立即重试并清除冷却）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited (cache older than 24h is dropped and reported as a read failure); backs off for 10 min after repeated failures (manual refresh clears the cooldown and retries immediately)."))
                     rowDivider
                     providerRow("Copilot", "api.github.com/copilot_internal/user",
                                 [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
-                                L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot`。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot`."))
+                                L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot` · 首次开启需确认风险 · 接口字段缺失时显示读取失败，绝不假装额度是满的。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot` · risk confirmation on first enable · if the endpoint\u{2019}s fields go missing it reports a read failure rather than pretending the quota is full."))
                     note(L("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。", "Only tools you actually use (installed / signed in) are shown; the rest hide automatically."))
                     note(L("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页，**组件级**判定——只看与该 AI 相关的组件（如 Codex API / Claude Code / Copilot），无关组件（如 FedRAMP）不会误报；异常时卡片显示「服务降级 / 中断」胶囊（悬停看具体组件）、菜单栏图标加指示点。", "Service status monitor (can be disabled in Settings): polls each vendor\u{2019}s public status page every 5 minutes at the **component level** — only components relevant to that AI (Codex API / Claude Code / Copilot) count, so unrelated ones (e.g. FedRAMP) can\u{2019}t cause false alarms; on incidents the card shows a Degraded / Outage chip (hover for details) and the menu-bar icon gets a dot."))
                     note(L("通知告警：某窗口剩余量跌破「低用量 / 紧急」阈值时各通知一次，回升后重置、可再次触发；限流时展示的缓存旧数据不触发告警。", "Alerts: one notification when a window drops below the low / critical threshold, re-armed after recovery; stale cached data never triggers alerts."))
@@ -59,7 +59,7 @@ struct HelpView: View {
 
                 // ③ 合规姿态。
                 card("checkmark.shield", L("合规", "Compliance")) {
-                    bullet(L("Claude / Copilot 走未公开端点，可能不符其服务条款；默认关闭、开启前提示、自担风险。", "Claude / Copilot use undocumented endpoints that may violate their ToS; off by default, confirmed before enabling, at your own risk."))
+                    bullet(L("Claude / Copilot 走社区通用接口（官方未文档化），可能不符其服务条款；默认关闭、**各自**在开启前弹一次风险确认、自担风险。", "Claude / Copilot use community APIs (not officially documented) that may conflict with their ToS; off by default, **each** shows a risk confirmation before being enabled, at your own risk."))
                     bullet(L("仅以本人凭证读本人用量，只读不改；诚实标识 UA，不伪装官方客户端。", "Reads only your own usage with your own credentials, read-only; honest User-Agent, never impersonates official clients."))
                     bullet(L("端点失效即降级（缓存），不影响本地的 Codex / Gemini。", "If an endpoint breaks it degrades gracefully (cache); local Codex / Gemini are unaffected."))
                 }

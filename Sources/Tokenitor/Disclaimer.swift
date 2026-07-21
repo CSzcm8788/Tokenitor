@@ -14,7 +14,7 @@ enum Disclaimer {
     本应用不内置、不展示任何 AI 服务商的 Logo 图片，仅以各服务的名称作指示性标识以区分第三方 AI 服务；相关名称/商标的知识产权归各公司所有。
 
     数据来源说明：
-    本应用仅通过用户授权的方式读取本地数据，不访问任何服务的私有接口或进行未经授权的数据抓取。用量数据的准确性取决于原始服务的公开信息及本地记录。
+    本应用只读取本机上属于你自己的数据与登录凭证，只读不改、不上传。其中 Codex / Gemini 为纯本地文件读取；Claude / Copilot 两项经由社区通用接口（官方未文档化）以你本人的凭证读取你本人的用量——它们默认关闭，开启前会单独提示相应风险。此类接口可能不符合对应服务的条款、且随时可能变更或失效。用量数据的准确性取决于原始服务返回的信息及本地记录。
 
     本应用不代表上述任何公司的官方立场、观点或产品推荐。使用本应用产生的任何后果由用户自行承担。
 
@@ -32,7 +32,7 @@ enum Disclaimer {
     This app does not bundle or display any AI vendor's logo; services are identified by name only, as nominative references. All names and trademarks belong to their respective owners.
 
     Data sources:
-    This app reads local data only with your authorization; it does not access private interfaces or scrape data without authorization. Accuracy depends on the original services' public information and local records.
+    This app reads only your own local data and credentials, read-only, and uploads nothing. Codex / Gemini are read purely from local files; Claude / Copilot are read through community APIs (not officially documented) using your own credentials to fetch your own usage — both are off by default and prompt you with their specific risks before being enabled. Such endpoints may conflict with the respective service terms and may change or break at any time. Accuracy depends on what the original services return and on local records.
 
     This app does not represent any official position, view, or endorsement of the companies above. You use this app at your own risk.
 

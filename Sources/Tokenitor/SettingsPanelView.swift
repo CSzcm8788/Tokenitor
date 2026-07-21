@@ -48,6 +48,7 @@ struct SettingsPanelView: View {
 
     private let warnOptions = [80, 70, 60, 50, 40, 30]
     private let critOptions = [50, 40, 30, 20]
+    private let geminiLimitOptions = [250, 500, 1000, 2000]
     private let intervalOptions = [30, 60, 120, 300]
 
     var body: some View {
@@ -60,7 +61,7 @@ struct SettingsPanelView: View {
                     aiToggle(kind)
                 }
             } header: {
-                sectionHeader(L("AI 服务", "AI Services"), L("选择要监控用量的工具；走非官方端点的（Claude / Copilot）首次开启会弹确认。", "Pick the tools to monitor; Claude / Copilot use undocumented endpoints and ask for confirmation on first enable."))
+                sectionHeader(L("AI 服务", "AI Services"), L("选择要监控用量的工具；走社区接口的（Claude / Copilot）首次开启各弹一次确认。", "Pick the tools to monitor; Claude / Copilot use community APIs and each asks for confirmation on first enable."))
             }
 
             // 告警
@@ -85,6 +86,11 @@ struct SettingsPanelView: View {
 
             // 通用
             Section {
+                Picker(L("Gemini 每日额度（估算）", "Gemini daily limit (estimate)"),
+                       selection: bind({ Int(Settings.shared.geminiDailyLimit) },
+                                       { Settings.shared.geminiDailyLimit = Double($0); store.onSettingsChanged() })) {
+                    ForEach(geminiLimitOptions, id: \.self) { Text("\($0)").tag($0) }
+                }
                 Picker(L("刷新间隔", "Refresh interval"),
                        selection: bind({ Int(Settings.shared.refreshInterval) },
                                        { Settings.shared.refreshInterval = Double($0); store.onSettingsChanged() })) {
@@ -151,17 +157,13 @@ struct SettingsPanelView: View {
         .padding(.bottom, 2)
     }
 
-    /// 一个 AI 开关（Claude 首次开启走风险确认弹窗，行内不再重复标注）。
+    /// 一个 AI 开关（走社区接口的 Claude / Copilot 首次开启各弹一次风险确认，行内不再重复标注）。
     /// AI 行不带图标，只用名称（品牌 logo 已移除）。
     private func aiToggle(_ kind: AIKind) -> some View {
         Toggle(isOn: Binding(
             get: { Settings.shared.isEnabled(kind) },
             set: { on in
-                if kind == .claude {
-                    Settings.shared.setEnabled(.claude, on ? ClaudeRiskGate.confirmEnableIfNeeded() : false)
-                } else {
-                    Settings.shared.setEnabled(kind, on)
-                }
+                Settings.shared.setEnabled(kind, on ? RiskGate.confirmEnableIfNeeded(kind) : false)
                 store.onSettingsChanged()
             })) {
             Text(kind.title)

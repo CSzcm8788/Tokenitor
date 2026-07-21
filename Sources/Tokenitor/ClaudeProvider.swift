@@ -93,20 +93,44 @@ final class ClaudeProvider: UsageProvider {
         }
     }
 
-    /// 有缓存就显示缓存数据（附带提示、标记 stale 供告警引擎跳过），否则报错。
+    /// 缓存有效期：超过这个时长的旧数据不再当「用量」显示——几周前的百分比看着像刚更新，
+    /// 比没有数据更危险（会让人误判还剩多少额度）。过期后一律显示读取失败。
+    private static let maxCacheAge: TimeInterval = 24 * 3600
+
+    /// 缓存是否仍在有效期内（有数据 + 有时间戳 + 未过期）。
+    private func cacheUsable() -> Bool {
+        guard !lastWindows.isEmpty, let t = lastOK else { return false }
+        return Date().timeIntervalSince(t) <= Self.maxCacheAge
+    }
+
+    /// 缓存可用就显示缓存数据（标记 stale 供告警引擎跳过，并带上数据自身时间供卡片显示
+    ///「数据 X前」），否则如实报错。
     private func failOrCached(_ msg: String) -> ProviderSnapshot {
-        if !lastWindows.isEmpty {
-            return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
-                                    error: nil, note: "（\(msg)）显示上次数据 \(timeStr())",
-                                    isStale: true)
+        guard cacheUsable() else {
+            if !lastWindows.isEmpty {
+                return .failed(displayName, L("\(msg)；上次数据已超过 24 小时，不再显示",
+                                              "\(msg); last data is over 24h old and is no longer shown"))
+            }
+            return .failed(displayName, msg)
         }
-        return .failed(displayName, msg)
+        return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
+                                error: nil, note: "（\(msg)）显示上次数据 \(timeStr())",
+                                isStale: true, dataAsOf: lastOK)
     }
 
     private func staleSnapshot(reason: String) -> ProviderSnapshot {
-        ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
-                         error: nil, note: "\(reason)，显示上次数据 \(timeStr())",
-                         isStale: true)
+        guard cacheUsable() else {
+            return .failed(displayName, L("\(reason)；上次数据已超过 24 小时，不再显示",
+                                          "\(reason); last data is over 24h old and is no longer shown"))
+        }
+        return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
+                                error: nil, note: "\(reason)，显示上次数据 \(timeStr())",
+                                isStale: true, dataAsOf: lastOK)
+    }
+
+    /// 手动刷新（⌘R / 刷新按钮）时清掉自身的 429 冷却，让「手动刷新」名副其实。
+    func resetBackoff() {
+        stateQueue.async { self.cooldownUntil = nil }
     }
 
     private func timeStr() -> String {

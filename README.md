@@ -37,7 +37,7 @@
 |------|------|------|
 | Claude | `https://api.anthropic.com/api/oauth/usage` | **社区通用接口**（Community API，官方未文档化）的 OAuth 用量端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里；首次会弹「允许访问钥匙串」，建议点「允许」——每次询问，不推荐「始终允许」）。对 Claude Code 的凭证**只读、绝不代它续期**，不会影响 Claude Code 自己的登录态。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
-| Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数，对约 1000 次/天估算（**本地估算**，仅本机 CLI），本地 0 点重置。**注**：2026-06-18 起 Google 已对个人账号停服旧版 Gemini CLI（迁移到 Antigravity CLI `agy`）；近 36h 无活动会自动隐藏，避免显示过期数据。 |
+| Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数做**本地估算**（仅本机 CLI），本地 0 点重置。官方每日额度按账号类型浮动（约 250–2000）且本地读不到，故分母**可在设置里调整**（默认 1000），界面标注为估算。**注**：2026-06 起 Google 已把个人账号从旧版 Gemini CLI 迁移到 Antigravity CLI（`agy`），其用量不写入 `~/.gemini`；本项仅在检测到近 36h 有本地活动时显示，否则自动隐藏。 |
 | GitHub Copilot | `https://api.github.com/copilot_internal/user` | 用 `~/.config/github-copilot/` 里的登录 token（gho_）请求 GitHub 内置端点，取 `quota_snapshots.premium_interactions` 的每月高级用量剩余%，每月 1 号 UTC 重置。个人 Pro 可直接用该 token 访问。属**社区通用接口**（官方未文档化），默认关闭、需手动开启，失效时优雅降级。 |
 
 > ⚠️ Claude / Copilot 走**社区通用接口**（官方未文档化），默认关闭、需手动开启；可能随时变动或失效，失效时优雅降级（不影响纯本地的 Codex / Gemini）。
@@ -284,6 +284,23 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 [MIT](LICENSE) © 2026 CSzcm8788。可自由使用 / 修改 / 分发（含商用），需保留版权声明；软件按「原样」提供，不含任何担保。
 
 ## 更新日志
+
+### 1.5.2
+
+加固版本（Hardening）：以「宁可不显示，也不显示错的」为准绳的一轮自查修复。
+
+- **免责声明与代码口径统一**：应用内首启声明此前写着「不访问私有接口」，与 Claude / Copilot 的实际实现矛盾；现改为与 README / 隐私说明一致的准确表述（纯本地源 vs 社区接口、默认关、开启前单独确认）。
+- **Copilot 补齐风险确认**：设置页承诺「Claude / Copilot 首次开启会确认」，但此前只拦截了 Claude；现两者各有一次针对性的风险确认弹窗（`RiskGate` 统一）。
+- **错误数据不再伪装成正常**：
+  - Copilot 接口百分比字段缺失时，此前会兜底算成「剩余 100%」——现改为如实报「读取失败」。
+  - Claude 磁盘缓存加 **24 小时有效期**，过期不再当用量显示；缓存数据同时带上自身时间，卡片显示「数据 X前」。
+  - 手动刷新（⌘R / 按钮 / 右键）现在会**清除数据源自身的限流冷却**，不再出现「点了刷新却什么都没发生」。
+  - 低用量阈值与紧急阈值不再可能被设成倒置（改动任一项自动顶开另一项）。
+- **首次使用空状态**：没检测到任何工具时，不再永远转「正在获取用量…」，而是说明原因并给出「打开设置」入口。
+- **Gemini 口径修正**：每日额度改为可配置（250 / 500 / 1000 / 2000，默认 1000），界面与文档明确标注为本地估算，并说明个人账号已迁移 Antigravity CLI。
+- **卸载与隐私收尾**：`uninstall.sh` 用精确进程名匹配替代 `pkill -f`（避免误杀命令行里含 Tokenitor 的无关进程），并清理本应用写入的钥匙串条目与 `~/.tokenitor`；隐私说明移除早已下线的 Cursor 描述。
+- **发布一致性**：`release.sh` 增加发布前置检查——工作区干净、版本号两处一致、标签与 HEAD 一致、HEAD 已推送、测试全绿；构建把源码 commit 写进 `Info.plist`（`TokenitorSourceCommit`）并在打包后核对，做到「DMG 一定来自这次提交」。
+- **测试补齐**：新增 Copilot 字段解析、告警引擎触发/恢复、阈值约束、CLI JSON 契约等 15 个用例（共 68 个）。
 
 ### 1.5.1
 

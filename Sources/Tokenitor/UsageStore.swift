@@ -10,6 +10,9 @@ final class UsageStore: ObservableObject {
     @Published var lastUpdate: Date? = nil
     @Published var page: AppPage = .usage    // 主窗口内页面切换
     @Published var isRefreshing = false       // 正在抓取（工具栏刷新按钮显示转圈）
+    // 是否已完成过至少一轮抓取。用来区分「首次加载中」与「确实没有可显示的工具」——
+    // 后者要给可操作指引，而不是永远转「正在获取用量…」。
+    @Published var hasFetched = false
 
     // Token 页数据
     @Published var tokenStats: [TokenStat] = []
@@ -36,6 +39,9 @@ final class UsageStore: ObservableObject {
     var onOpenWindow: (AppPage) -> Void = { _ in }
     // 窗口自适应：内容高度变化时回调，AppDelegate 据此调整窗口高度
     var onMainHeight: (CGFloat) -> Void = { _ in }
+
+    /// 一轮抓取收尾（无论有无结果）：此后空列表就意味着「没有检测到在用的 AI」。
+    func markFetchComplete() { hasFetched = true }
 
     /// 在主线程更新数据（网络刷新后调用，会刷新「更新于」时间）
     func update(_ snaps: [ProviderSnapshot]) {

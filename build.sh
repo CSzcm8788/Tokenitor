@@ -7,8 +7,10 @@ cd "$(dirname "$0")"
 
 APP_NAME="Tokenitor"
 BUNDLE_ID="com.tokenitor.app"
-VERSION="1.5.1"
+VERSION="1.5.2"
 BUILD_NUM="$(date +%Y%m%d%H%M)"   # 每次构建递增的 build 号：让 macOS 注意到图标变化、刷新通知图标缓存
+# 产物溯源：把构建时的源码 commit 写进 Info.plist，发布时可核对「DMG 来自哪次提交」
+GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 BUILD_DIR=".build/release"
 APP_DIR="dist/${APP_NAME}.app"
 
@@ -66,6 +68,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>LSMinimumSystemVersion</key>  <string>13.0</string>
     <key>NSHumanReadableCopyright</key> <string>Local build</string>
     <key>NSAppSleepDisabled</key>      <true/>
+    <key>TokenitorSourceCommit</key>   <string>${GIT_SHA}</string>
 
     <key>NSAppleEventsUsageDescription</key> <string>Tokenitor 用它在终端里帮你重新登录 Claude 订阅。</string>
 </dict>
