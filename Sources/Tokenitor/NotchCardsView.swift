@@ -47,7 +47,7 @@ struct NotchCardsView: View {
         let warn = Settings.shared.warnAt, crit = Settings.shared.critAt
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Text(snap.name).font(.uiCaption)
+                Text(snap.name).font(.sectionTitle)   // 与弹层/主窗口同款（13pt 半粗），三端 AI 名一致
                 // 与仪表 / 弹层统一的胶囊行（状态 / 来源 / 档位 / 服务状态）
                 ProviderChipsRow(snap: snap,
                                  serviceStatus: store.serviceStatus[snap.name],

@@ -130,7 +130,7 @@ struct AIMonitorPanel: View {
     private var plainHeader: some View {
         HStack(spacing: compact ? 6 : 7) {
             Text(snap.name)
-                .font(compact ? .uiCaption : .sectionTitle)
+                .font(.sectionTitle)   // 三端统一：紧凑形态也不再缩小 AI 名
             ProviderChipsRow(snap: snap, serviceStatus: serviceStatus, compact: compact)
             Spacer(minLength: 0)
         }
