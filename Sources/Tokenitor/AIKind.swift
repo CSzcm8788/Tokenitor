@@ -7,6 +7,7 @@ enum AIKind: String, CaseIterable, Identifiable {
     case claude  = "Claude"
     case codex   = "Codex"
     case gemini  = "Gemini"
+    case grok    = "Grok"
     case copilot = "Copilot"
 
     var id: String { rawValue }
@@ -23,6 +24,7 @@ enum AIKind: String, CaseIterable, Identifiable {
         case .claude:  return ClaudeProvider()
         case .codex:   return CodexProvider()
         case .gemini:  return GeminiProvider()
+        case .grok:    return GrokProvider()
         case .copilot: return CopilotProvider()
         }
     }
@@ -31,8 +33,8 @@ enum AIKind: String, CaseIterable, Identifiable {
     ///（官方未文档化；条款风险在说明页合规卡与开启前弹窗中完整披露）。
     var sourceTag: String {
         switch self {
-        case .claude, .copilot: return L("社区", "Community")
-        case .codex, .gemini:   return L("本地", "Local")
+        case .claude, .copilot:       return L("社区", "Community")
+        case .codex, .gemini, .grok:  return L("本地", "Local")
         }
     }
 

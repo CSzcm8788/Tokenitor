@@ -116,7 +116,7 @@ final class AlertEngine {
     }
 
     func evaluate(_ snapshots: [ProviderSnapshot]) {
-        guard Settings.shared.notificationsEnabled else { return }
+        guard Settings.shared.notificationsEnabled, !Settings.shared.alertsSnoozed else { return }
         let warn = Settings.shared.warnAt
         let crit = Settings.shared.critAt
 

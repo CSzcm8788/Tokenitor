@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ── 视图：页面导航（⌘1/⌘2）+ 刷新（⌘R，从 app 菜单移入）
         let viewItem = NSMenuItem(); mainMenu.addItem(viewItem)
         let viewMenu = NSMenu(title: L("视图", "View"))
-        viewMenu.addItem(withTitle: L("仪表", "Dashboard"), action: #selector(showUsagePage), keyEquivalent: "1").target = self
+        viewMenu.addItem(withTitle: "Dashboard", action: #selector(showUsagePage), keyEquivalent: "1").target = self
         viewMenu.addItem(withTitle: L("Token 用量", "Token Usage"), action: #selector(showTokensPage), keyEquivalent: "2").target = self
         viewMenu.addItem(.separator())
         viewMenu.addItem(withTitle: L("刷新", "Refresh"), action: #selector(menuRefresh), keyEquivalent: "r").target = self
@@ -154,6 +154,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         log("applicationDidFinishLaunching")
+        // 低电量模式开/关时即时调整刷新节奏
+        NotificationCenter.default.addObserver(forName: .NSProcessInfoPowerStateDidChange,
+                                               object: nil, queue: .main) { [weak self] _ in
+            self?.restartTimer()
+        }
         Disclaimer.presentIfNeeded()   // 首次启动：免责声明（不同意则退出）
         // SwiftUI 展示层的动作回调
         store.onRefresh = { [weak self] in self?.refresh(force: true) }
@@ -307,7 +312,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func restartTimer() {
         timer?.invalidate()
-        let interval = Settings.shared.refreshInterval
+        // 低电量模式：刷新间隔 ×4（120s → 8min）。省电优先，手动刷新不受影响；
+        // 模式切换的系统通知会触发 restartTimer 即时恢复节奏。
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let interval = Settings.shared.refreshInterval * (lowPower ? 4 : 1)
         // .common mode：弹层/菜单追踪期间不暂停；tolerance 5s + Info.plist 的 NSAppSleepDisabled
         // 共同保证后台常驻时 120s 就是 120s（App Nap 曾把节拍拉长数倍 → 用量看起来滞后）。
         let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in

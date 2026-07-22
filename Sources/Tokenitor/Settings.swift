@@ -94,8 +94,8 @@ final class Settings {
     // 纯本地零联网的（Codex / Gemini）默认开。
     private func defaultEnabled(_ kind: AIKind) -> Bool {
         switch kind {
-        case .claude, .copilot: return false
-        case .codex, .gemini:   return true
+        case .claude, .copilot:      return false
+        case .codex, .gemini, .grok: return true
         }
     }
     func isEnabled(_ kind: AIKind) -> Bool {
@@ -129,6 +129,13 @@ final class Settings {
         get { max(1, d.object(forKey: "geminiDailyLimit") as? Double ?? 1000) }
         set { d.set(max(1, newValue), forKey: "geminiDailyLimit") }
     }
+
+    // 告警静音截止时间（时间戳，0=未静音）。深夜赶工时可静音 1/4/8 小时，到期自动恢复。
+    var alertsSnoozedUntil: Double {
+        get { d.double(forKey: "alertsSnoozedUntil") }
+        set { d.set(newValue, forKey: "alertsSnoozedUntil") }
+    }
+    var alertsSnoozed: Bool { Date().timeIntervalSince1970 < alertsSnoozedUntil }
 
     // 界面语言：跟随系统 / 中文 / English（"system" / "zh" / "en"）
     var language: String {

@@ -8,8 +8,8 @@ enum RiskGate {
     /// 该数据源是否需要风险确认（走社区接口的才需要）。
     static func requiresConfirmation(_ kind: AIKind) -> Bool {
         switch kind {
-        case .claude, .copilot: return true
-        case .codex, .gemini:   return false
+        case .claude, .copilot:      return true
+        case .codex, .gemini, .grok: return false
         }
     }
 

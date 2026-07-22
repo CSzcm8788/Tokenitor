@@ -24,8 +24,8 @@ struct EmptyStateView: View {
                       systemImage: "questionmark.circle")
                     .font(compact ? .uiCaption : .sectionTitle)
                     .foregroundStyle(.primary)
-                Text(L("· Codex / Gemini：在本机用过一次即自动出现（读取本地会话文件）\n· Claude / Copilot：默认关闭，需在设置里启用并授权一次",
-                       "· Codex / Gemini: appear automatically once used on this Mac (read from local session files)\n· Claude / Copilot: off by default — enable and authorize once in Settings"))
+                Text(L("· Codex / Gemini / Grok：在本机用过一次即自动出现（读取本地文件）\n· Claude / Copilot：默认关闭，需在设置里启用并授权一次",
+                       "· Codex / Gemini / Grok: appear automatically once used on this Mac (read from local files)\n· Claude / Copilot: off by default — enable and authorize once in Settings"))
                     .font(.uiCaption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

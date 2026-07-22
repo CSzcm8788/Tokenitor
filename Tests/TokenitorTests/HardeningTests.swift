@@ -179,3 +179,99 @@ final class GeminiCountTests: XCTestCase {
         XCTAssertEqual(GeminiProvider.countToday(userDirs: [dir], todayStart: start), 1)
     }
 }
+
+/// Codex 模型归因：model 来自 thread_settings_applied 事件，随后的 token_count 不带 model，
+/// 且会话中途会切换模型（gpt-5.5 → gpt-5.6-sol）。必须逐事件按「当前模型」延续归因，
+/// 而非整文件记给第一个模型。
+final class CodexModelAttributionTests: XCTestCase {
+
+    private func line(_ json: String) -> Any {
+        try! JSONSerialization.jsonObject(with: Data(json.utf8))
+    }
+
+    func testModelCarriesForwardAndSwitches() {
+        var current: String? = nil
+        // 1) thread_settings 设 gpt-5.5
+        var i = TokenAggregator.LineInfo()
+        TokenAggregator.extract(line(#"{"payload":{"type":"thread_settings_applied","thread_settings":{"model":"gpt-5.5"}}}"#), usageKey: "last_token_usage", into: &i)
+        XCTAssertEqual(TokenAggregator.resolveModel(i, current: &current, default: "gpt-5-codex"), "gpt-5.5")
+        // 2) token_count 不带 model → 延续 gpt-5.5
+        i = TokenAggregator.LineInfo()
+        TokenAggregator.extract(line(#"{"payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":100}}}}"#), usageKey: "last_token_usage", into: &i)
+        XCTAssertEqual(TokenAggregator.resolveModel(i, current: &current, default: "gpt-5-codex"), "gpt-5.5")
+        // 3) thread_settings 切到 gpt-5.6-sol
+        i = TokenAggregator.LineInfo()
+        TokenAggregator.extract(line(#"{"payload":{"type":"thread_settings_applied","thread_settings":{"model":"gpt-5.6-sol"}}}"#), usageKey: "last_token_usage", into: &i)
+        XCTAssertEqual(TokenAggregator.resolveModel(i, current: &current, default: "gpt-5-codex"), "gpt-5.6-sol")
+        // 4) 之后的 token_count 归到 gpt-5.6-sol，不再是 gpt-5.5
+        i = TokenAggregator.LineInfo()
+        TokenAggregator.extract(line(#"{"payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":50}}}}"#), usageKey: "last_token_usage", into: &i)
+        XCTAssertEqual(TokenAggregator.resolveModel(i, current: &current, default: "gpt-5-codex"), "gpt-5.6-sol")
+    }
+
+    func testDefaultWhenNoModelEverSeen() {
+        var current: String? = nil
+        var i = TokenAggregator.LineInfo()
+        TokenAggregator.extract(line(#"{"info":{"last_token_usage":{"input_tokens":10}}}"#), usageKey: "last_token_usage", into: &i)
+        XCTAssertEqual(TokenAggregator.resolveModel(i, current: &current, default: "gpt-5-codex"), "gpt-5-codex")
+    }
+}
+
+/// 各家 token 口径不同：这里守住「谁含缓存、谁的推理独立」的映射事实。
+final class TokenMapperTests: XCTestCase {
+
+    /// Gemini：input 含 cached（须扣除）；thoughts 独立于 output（须并入，按输出计价）。
+    func testGeminiMapping() {
+        let c = TokenAggregator.geminiCounts(from: ["input": 11083, "output": 11, "cached": 10880, "thoughts": 179, "tool": 0, "total": 11273])
+        XCTAssertEqual(c?.input, 203)        // 11083 - 10880
+        XCTAssertEqual(c?.output, 190)       // 11 + 179
+        XCTAssertEqual(c?.cacheRead, 10880)
+        XCTAssertEqual(c?.total, 11273, "映射后总和必须与官方 total 一致")
+    }
+
+    /// Grok：prompt 含 cached（须扣除）；completion 已含 reasoning（不再加）。
+    func testGrokMapping() {
+        let c = TokenAggregator.grokCounts(from: ["prompt_tokens": 13617, "cached_prompt_tokens": 10880, "completion_tokens": 52, "reasoning_tokens": 31, "tokens_per_sec": 49.7])
+        XCTAssertEqual(c?.input, 2737)       // 13617 - 10880
+        XCTAssertEqual(c?.output, 52)
+        XCTAssertEqual(c?.cacheRead, 10880)
+    }
+
+    /// Grok 的 ctx 无 token 字段（其它事件）→ nil，不误计。
+    func testGrokNonInferenceCtxIgnored() {
+        XCTAssertNil(TokenAggregator.grokCounts(from: ["loop_index": 1, "elapsed_ms": 100]))
+    }
+
+    /// Codex：output 已含 reasoning，修正后不再重复加。
+    func testCodexOutputNotDoubleCounted() {
+        let c = TokenAggregator.counts(from: ["input_tokens": 225470, "cached_input_tokens": 218880, "output_tokens": 1361, "reasoning_output_tokens": 516])
+        XCTAssertEqual(c?.output, 1361, "reasoning 已含在 output 里，不能再加一遍")
+    }
+}
+
+/// Grok 用量页：billing 事件解析。
+final class GrokBillingTests: XCTestCase {
+
+    func testParseNormalBillingLine() {
+        let line: Substring = """
+        {"ts":"2026-07-22T08:42:43.141Z","msg":"billing: fetched credits config","ctx":{"config":{"creditUsagePercent":24.0,"currentPeriod":{"type":"USAGE_PERIOD_TYPE_WEEKLY","start":"2026-07-16T23:16:50.209406+00:00","end":"2026-07-23T23:16:50.209406+00:00"}},"subscriptionTier":"X Premium"}}
+        """
+        let hit = GrokProvider.parseBillingLine(line)
+        XCTAssertEqual(hit?.0, 24.0)
+        XCTAssertNotNil(hit?.1, "应解析出周期结束时间（含小数秒+时区写法）")
+        XCTAssertEqual(hit?.2, "X Premium")
+        XCTAssertNotNil(hit?.3)
+    }
+
+    func testGarbageAndMissingFields() {
+        XCTAssertNil(GrokProvider.parseBillingLine("creditUsagePercent broken json"))
+        XCTAssertNil(GrokProvider.parseBillingLine(#"{"ctx":{"config":{}}}"#))
+    }
+
+    func testTierWhitelist() {
+        XCTAssertEqual(PlanTier.grok("X Premium"), "X Premium")
+        XCTAssertEqual(PlanTier.grok("SuperGrok"), "SuperGrok")
+        XCTAssertNil(PlanTier.grok("free"))
+        XCTAssertNil(PlanTier.grok(nil))
+    }
+}

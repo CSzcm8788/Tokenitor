@@ -16,6 +16,17 @@ enum PlanTier {
         }
     }
 
+    /// Grok：来自 Grok Build 本地日志 billing 事件的 `subscriptionTier`。
+    static func grok(_ tier: String?) -> String? {
+        switch tier?.lowercased() {
+        case "x premium":  return "X Premium"
+        case "x premium+": return "X Premium+"
+        case "supergrok":  return "SuperGrok"
+        case "supergrok heavy": return "SuperGrok Heavy"
+        default:           return nil   // free / 未知 → 不显示（可信才挂胶囊）
+        }
+    }
+
     /// Codex：来自 ~/.codex/auth.json 里 id_token 的 `chatgpt_plan_type` claim。
     /// free 不显示：claim 可能陈旧、且与本机实际的付费配额窗口矛盾时宁可不挂。
     static func codex(_ claim: String?) -> String? {

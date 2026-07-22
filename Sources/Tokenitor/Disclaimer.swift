@@ -10,6 +10,7 @@ enum Disclaimer {
     • OpenAI 及其产品 Codex / ChatGPT
     • Google LLC 及其产品 Gemini
     • GitHub, Inc. / Microsoft Corporation 及其产品 GitHub Copilot
+    • xAI Corp. 及其产品 Grok
 
     本应用不内置、不展示任何 AI 服务商的 Logo 图片，仅以各服务的名称作指示性标识以区分第三方 AI 服务；相关名称/商标的知识产权归各公司所有。
 
@@ -28,6 +29,7 @@ enum Disclaimer {
     • OpenAI and its products Codex / ChatGPT
     • Google LLC and its product Gemini
     • GitHub, Inc. / Microsoft Corporation and their product GitHub Copilot
+    • xAI Corp. and its product Grok
 
     This app does not bundle or display any AI vendor's logo; services are identified by name only, as nominative references. All names and trademarks belong to their respective owners.
 

@@ -57,7 +57,7 @@ struct DashboardView: View {
                 // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
                 // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色）。
                 Section(L("概览", "Overview")) {
-                    sidebarItem(L("仪表", "Dashboard"), "gauge.medium", .usage)
+                    sidebarItem("Dashboard", "gauge.medium", .usage)
                     sidebarItem("Token", "chart.bar.xaxis", .tokens)
                     // Token 的工具切换收进边栏（Finder 源列表式子项），不再占详情页顶部
                     ForEach(store.tokenStats) { stat in
@@ -187,7 +187,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
-        ("1.5.3", L("修复 Gemini 用量翻倍：同一批提问被两个本地来源各数一遍", "Fix Gemini double-counting: the same prompts were counted once per local source")),
+        ("1.5.3", L("Grok 接入（第 5 个 AI）· Token 页三新源 · 内存峰值 −78% · Snooze/低电量 · Gemini 翻倍修复", "Grok support (5th AI) · 3 new token sources · −78% peak memory · snooze/low-power · Gemini double-count fix")),
         ("1.5.2", L("加固：声明口径校正 · Copilot 风险确认 · 错误数据不再伪装成正常 · 空状态指引", "Hardening: honest disclaimer · Copilot risk gate · no more fake-healthy data · actionable empty state")),
         ("1.5.1", L("关窗释放视图内存（后台 37MB，重开 46ms 无感）· CLI 补全重置额度/数据时间", "Release view memory on close (37MB resident, 46ms rebuild) · CLI resets/data-age fields")),
         ("1.5.0", L("命令行模式 --cli · 修复弹层悬停延迟 · 刘海点击直达主窗口 · 文档口径统一", "CLI mode (--cli) · fixed popover hover lag · notch panel click-through · unified docs wording")),

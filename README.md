@@ -3,7 +3,7 @@
 **中文** · [English](README.en.md)
 
 一个原生 macOS 应用，实时显示主流 AI 工具的剩余用量并在用量偏低时弹系统通知告警。
-当前支持 4 个：**Claude**、**Codex**、**Gemini CLI**、**GitHub Copilot**。各 AI 只用**名称文字**标识，不含任何第三方品牌 logo。
+当前支持 5 个：**Claude**、**Codex**、**Gemini CLI**、**Grok（Grok Build）**、**GitHub Copilot**。各 AI 只用**名称文字**标识，不含任何第三方品牌 logo。
 只显示你当前正在使用（已安装/登录）的 AI，其余自动隐藏。
 
 界面：**菜单栏优先的原生应用**。常驻**菜单栏**，左键弹出用量速览、右键精简菜单；点速览里的项打开**完整窗口**——macOS `NavigationSplitView` **分组式侧边栏**（概览：仪表 / Token；通用：语言 / 外观 / 设置；其他：关于 / 说明）+ `Form(.grouped)` 设置页。仪表页每个 AI 一块 **hero 玻璃卡片**：名称 + 状态胶囊（`LIVE` / `缓存` / `离线`）+ 来源胶囊（`本地` / `社区`）+「更新于」相对时间胶囊，下面是**大数字统计瓦片**（每个窗口的剩余 % + 重置倒计时）与彩色用量条；鼠标移到刘海弹出紧凑面板。关窗不退出、后台继续读取，Cmd+Q 退出；深浅色跟随系统或手动切换。首次启动需同意免责声明。
@@ -38,6 +38,7 @@
 | Claude | `https://api.anthropic.com/api/oauth/usage` | **社区通用接口**（Community API，官方未文档化）的 OAuth 用量端点，返回 5h / 周（含 Sonnet 单独配额）的已用百分比和重置时间。这是**账号级共享用量**，所以一份数据同时覆盖 **Claude 桌面 App、网页、Claude Code** 的消耗。token 先读 `~/.claude/.credentials.json`，读不到再从 **macOS 钥匙串**取（新版 Claude Code 与桌面 App 常存这里；首次会弹「允许访问钥匙串」，建议点「允许」——每次询问，不推荐「始终允许」）。对 Claude Code 的凭证**只读、绝不代它续期**，不会影响 Claude Code 自己的登录态。**⚠️ 高级·默认关闭**：该接口用订阅凭证访问，按 Anthropic 条款仅限 Claude Code / Claude.ai 使用，第三方使用可能违反条款、致账号受限；故默认关闭，需在设置中确认风险后开启。请求以诚实的 `User-Agent: Tokenitor/<版本>` 发出、**不伪装官方客户端**；因此更容易被该端点限流（429），限流时走磁盘缓存兜底、优雅降级。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数做**本地估算**（仅本机 CLI），本地 0 点重置。官方每日额度按账号类型浮动（约 250–2000）且本地读不到，故分母**可在设置里调整**（默认 1000），界面标注为估算。**注**：2026-06 起 Google 已把个人账号从旧版 Gemini CLI 迁移到 Antigravity CLI（`agy`），其用量不写入 `~/.gemini`；本项仅在检测到近 36h 有本地活动时显示，否则自动隐藏。 |
+| Grok | `~/.grok/logs/unified.jsonl` | 读 Grok Build（grok CLI）自己定期拉取并**落盘到本地日志**的 billing 事件：周共享池已用 %、精确重置时间、订阅档位（如 X Premium）。**完全本地读取、零联网**。注意口径：xAI 付费档为全产品（Chat/Imagine/Build/API）共享周池，此百分比即整体用量。 |
 | GitHub Copilot | `https://api.github.com/copilot_internal/user` | 用 `~/.config/github-copilot/` 里的登录 token（gho_）请求 GitHub 内置端点，取 `quota_snapshots.premium_interactions` 的每月高级用量剩余%，每月 1 号 UTC 重置。个人 Pro 可直接用该 token 访问。属**社区通用接口**（官方未文档化），默认关闭、需手动开启，失效时优雅降级。 |
 
 > ⚠️ Claude / Copilot 走**社区通用接口**（官方未文档化），默认关闭、需手动开启；可能随时变动或失效，失效时优雅降级（不影响纯本地的 Codex / Gemini）。
@@ -287,7 +288,14 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 
 ### 1.5.3
 
-修复 Gemini 用量翻倍（紧急小版本）。
+大版本：Grok 接入 · Token 页三新源 · 内存加固 · Gemini 用量翻倍修复。
+
+- **Grok（Grok Build）接入**：用量页新增 Grok 卡片——读 CLI 自己落盘的 billing 事件（周共享池 % / 精确重置 / X Premium 档位），零联网；Token 页同步接入（输入/输出/缓存 + grok-4.5 计价）。现共支持 **5 个 AI**。
+- **Token 页新增 Gemini / Grok 源**：各家 token 口径已归一（谁的输入含缓存就扣除、谁的推理独立就并入输出），映射有测试守护；顺带修正 **Codex 输出重复计入 reasoning** 的既有虚高。
+- **修复 Codex 模型归因**：会话中途切换模型（如 gpt-5.5 → gpt-5.6-sol）后，用量曾全记到旧模型；现按「当前模型」逐事件延续归因，按模型明细恢复真实。
+- **内存加固（实测驱动）**：Token 页首扫数百 MB 巨型会话（实测 526MB）的内存峰值 **1219MB → 264MB（−78%）**——超大文件首扫只从尾部 64MB 起读（今日数据必在尾部）+ 巨行预筛跳过 JSON 解析；稳态关窗仍 47MB。
+- **告警 Snooze**：设置里可临时静音 1/4/8 小时，到期自动恢复；**低电量模式**下刷新间隔自动 ×4 省电，恢复供电即回到正常节奏。
+- **侧边栏「仪表」更名 Dashboard**；刘海面板 AI 分隔线加深、块间距放宽（更易区分相邻 AI）。
 
 - **发布流程：公证提交减半**。此前每次发版提交两次公证（app.zip + dmg），现改为**只公证 DMG 一次**——DMG 内含已签名的 .app，公证会记录其中每个可执行文件的 cdhash，之后用 `stapler` 给 DMG 与 .app 分别盖章即可（Apple 建议每账号每天不超过 75 次公证）。同时把 `--wait` 长连接改为轮询查状态：网络掐断时不再重复提交、白白消耗额度，并支持同一 commit 重跑时跳过已完成的公证。
 

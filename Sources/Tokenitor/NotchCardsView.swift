@@ -5,7 +5,7 @@ struct NotchCardsView: View {
     @ObservedObject var store: UsageStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 13) {   // AI 块间距放宽一档，避免拥挤
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Tokenitor")
                     .font(.sectionTitle)
@@ -25,7 +25,12 @@ struct NotchCardsView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(Array(store.snapshots.enumerated()), id: \.element.name) { idx, snap in
-                    if idx > 0 { Divider().opacity(0.4) }
+                    // AI 之间的分隔线：系统 Divider 在深色玻璃上过淡（难以分清相邻 AI），
+                    // 改用显式 primary 低透明度细线，深浅两种外观下都清晰但不抢眼。
+                    if idx > 0 {
+                        Rectangle().fill(Color.primary.opacity(0.16)).frame(height: 1)
+                            .padding(.vertical, 1)
+                    }
                     providerBlock(snap)
                 }
             }

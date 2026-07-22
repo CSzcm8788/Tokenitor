@@ -80,6 +80,7 @@ struct SettingsPanelView: View {
                                        { Settings.shared.critAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(critOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
+                snoozeRow
             } header: {
                 sectionHeader(L("告警", "Alerts"), L("剩余量跌破阈值时发一次系统通知，回升后可再次触发。", "Notifies once when remaining quota drops below a threshold; re-arms after recovery."))
             }
@@ -148,6 +149,38 @@ struct SettingsPanelView: View {
     // MARK: - 行
 
     /// 分区头：小标题 + 一句话简介（同「系统设置」的分组头风格）。
+    /// 静音行：未静音时给 1/4/8 小时三个快捷键；静音中显示截止时间与取消按钮。
+    @ViewBuilder
+    private var snoozeRow: some View {
+        if Settings.shared.alertsSnoozed {
+            HStack {
+                Label(L("已静音至 \(snoozeUntilText)", "Snoozed until \(snoozeUntilText)"),
+                      systemImage: "moon.zzz")
+                Spacer()
+                Button(L("取消静音", "Unsnooze")) {
+                    Settings.shared.alertsSnoozedUntil = 0; store.onSettingsChanged()
+                }
+            }
+        } else {
+            HStack {
+                Label(L("暂时静音", "Snooze"), systemImage: "moon.zzz")
+                Spacer()
+                ForEach([1, 4, 8], id: \.self) { h in
+                    Button(L("\(h)小时", "\(h)h")) {
+                        Settings.shared.alertsSnoozedUntil =
+                            Date().addingTimeInterval(Double(h) * 3600).timeIntervalSince1970
+                        store.onSettingsChanged()
+                    }
+                }
+            }
+        }
+    }
+
+    private var snoozeUntilText: String {
+        let df = DateFormatter(); df.dateFormat = "HH:mm"
+        return df.string(from: Date(timeIntervalSince1970: Settings.shared.alertsSnoozedUntil))
+    }
+
     private func sectionHeader(_ title: String, _ desc: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.sectionTitle).foregroundStyle(.primary)
