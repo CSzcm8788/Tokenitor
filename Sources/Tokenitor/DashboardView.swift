@@ -54,21 +54,24 @@ struct DashboardView: View {
 
     private var sidebarContent: some View {
         List(selection: sidebarSelection) {
-                // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
-                // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色）。
+                // 分组式导航（概览 / 通用 / 其他）+ 统一规格单色 SF Symbols：
+                // 固定 13pt / 18pt 槽宽；颜色强制 secondary 灰，避免选中时被 List 刷成强调色。
                 Section(L("概览", "Overview")) {
                     sidebarItem("Dashboard", "gauge.medium", .usage)
-                    sidebarItem("Token", "chart.bar.xaxis", .tokens)
+                    sidebarItem("Token", "chart.bar", .tokens)   // 不用 .xaxis：带坐标轴更宽更重，破坏图标列
                     // Token 的工具切换收进边栏（Finder 源列表式子项），不再占详情页顶部
                     ForEach(store.tokenStats) { stat in
                         Label {
                             Text(stat.tool)
                         } icon: {
+                            // 与主项同一列宽，圆点在列内居中——文字左边线与主项对齐。
                             Image(systemName: "circlebadge.fill")
                                 .font(.system(size: 6))
-                                .foregroundStyle(.secondary)
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(.tertiary)
+                                .frame(width: Self.sidebarIconSlot, alignment: .center)
                         }
-                        .padding(.leading, 14)
+                        .padding(.leading, 16)
                         .tag(SidebarSel.tool(stat.tool))
                     }
                 }
@@ -114,10 +117,28 @@ struct DashboardView: View {
             })
     }
 
-    /// 边栏行：单色 SF Symbol + 名称（着色交给系统：强调色 / 选中态自动适配）。
+    /// 侧栏图标槽宽：各 SF Symbol 视觉宽度不等，钉死后文字左边线才齐。
+    private static let sidebarIconSlot: CGFloat = 18
+
+    /// 侧栏图标统一规格。强制 secondary 灰——SwiftUI 在「浅色 + 窗口活跃」时会给 List
+    /// 里的 Label 图标自动上强调色（变蓝），与「选中色用灰」不一致。
+    @ViewBuilder
+    private func sidebarIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 13, weight: .regular))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(.secondary)
+            .frame(width: Self.sidebarIconSlot, alignment: .center)
+    }
+
+    /// 边栏行：统一 SF Symbol + 名称（图标始终灰色，不跟选中强调色）。
     private func sidebarItem(_ title: String, _ icon: String, _ page: AppPage) -> some View {
-        Label(title, systemImage: icon)
-            .tag(SidebarSel.page(page))
+        Label {
+            Text(title)
+        } icon: {
+            sidebarIcon(icon)
+        }
+        .tag(SidebarSel.page(page))
     }
 
     @ViewBuilder
