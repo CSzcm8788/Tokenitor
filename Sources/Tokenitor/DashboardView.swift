@@ -198,6 +198,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.5", L("Claude 改本地读取（零联网、不再撞限流）· 四级降级链", "Claude now reads locally (no network, no rate limits) · four-tier fallback")),
         ("1.5.4", L("卡片头两行化 · 浅色模式全窗统一 · 设置页 4 字对齐 · 刷新全自动（移除手动按钮）· 应用内检查更新", "Two-row card header · unified light mode · 4-char settings labels · fully automatic refresh · in-app update check")),
         ("1.5.3", L("Grok 接入（第 5 个 AI）· Token 页三新源 · 内存峰值 −78% · Snooze/低电量 · Gemini 翻倍修复", "Grok support (5th AI) · 3 new token sources · −78% peak memory · snooze/low-power · Gemini double-count fix")),
         ("1.5.2", L("加固：声明口径校正 · Copilot 风险确认 · 错误数据不再伪装成正常 · 空状态指引", "Hardening: honest disclaimer · Copilot risk gate · no more fake-healthy data · actionable empty state")),

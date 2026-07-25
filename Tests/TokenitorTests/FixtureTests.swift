@@ -144,3 +144,65 @@ final class FixtureTests: XCTestCase {
                       "Claude 必须说明是账号级共享")
     }
 }
+
+/// Claude 本地桥：statusline payload 的解析。字段语义来自官方 changelog
+///（`rate_limits` + 5-hour/7-day 窗口 + `used_percentage` / `resets_at`）；
+/// 解析刻意宽容（键名大小写风格、秒/毫秒/ISO 时间戳），认不出的窗口一律跳过而不猜。
+final class ClaudeStatuslineTests: XCTestCase {
+
+    private func payload(_ name: String) throws -> Any {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "Fixtures/\(name)", withExtension: nil))
+        return try JSONSerialization.jsonObject(with: try Data(contentsOf: url))
+    }
+
+    func testParsesBothWindowsFromFixture() throws {
+        let ws = ClaudeStatusline.parseWindows(try payload("claude-statusline.json"))
+        XCTAssertEqual(ws.count, 2)
+        XCTAssertEqual(ws[0].label, "5h", "5 小时窗口必须排在前（与其它源展示顺序一致）")
+        XCTAssertEqual(ws[0].usedPercent, 51)
+        XCTAssertEqual(ws[0].remainingPercent, 49)
+        XCTAssertEqual(ws[1].label, "weekly")
+        XCTAssertEqual(ws[1].usedPercent, 25)
+        XCTAssertNotNil(ws[0].resetsAt)
+    }
+
+    /// camelCase 变体也要认（没有正式 schema 承诺，不能只赌一种写法）。
+    func testAcceptsCamelCaseVariant() throws {
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(#"""
+        {"rateLimits":{"fiveHour":{"usedPercentage":80,"resetsAt":1746920100}}}
+        """#.utf8)))
+        let ws = ClaudeStatusline.parseWindows(obj)
+        XCTAssertEqual(ws.count, 1)
+        XCTAssertEqual(ws[0].usedPercent, 80)
+    }
+
+    /// 毫秒时间戳与 ISO 字符串都要能解析。
+    func testResetTimestampForms() throws {
+        for raw in [#"{"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":1746920100000}}}"#,
+                    #"{"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":"2026-05-11T00:15:00Z"}}}"#] {
+            let ws = ClaudeStatusline.parseWindows(try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(raw.utf8))))
+            XCTAssertEqual(ws.count, 1)
+            let d = try XCTUnwrap(ws[0].resetsAt, "毫秒/ISO 都应解析出时间：\(raw)")
+            XCTAssertGreaterThan(d, Date(timeIntervalSince1970: 1_700_000_000))
+            XCTAssertLessThan(d, Date(timeIntervalSince1970: 2_000_000_000), "毫秒未被当成秒（否则会落到公元 57000 年）")
+        }
+    }
+
+    /// 没有 rate_limits、或窗口里没有百分比 → 返回空，交由 provider 降级到端点。
+    func testMissingDataYieldsNoWindows() throws {
+        for raw in [#"{"model":{"id":"x"}}"#,
+                    #"{"rate_limits":{}}"#,
+                    #"{"rate_limits":{"five_hour":{"resets_at":1746920100}}}"#] {
+            let ws = ClaudeStatusline.parseWindows(try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(raw.utf8))))
+            XCTAssertTrue(ws.isEmpty, "缺百分比时不能凭空造窗口：\(raw)")
+        }
+    }
+
+    /// 百分比越界要夹紧（防止界面出现负剩余或 >100%）。
+    func testPercentClamped() throws {
+        let ws = ClaudeStatusline.parseWindows(try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(
+            #"{"rate_limits":{"five_hour":{"used_percentage":150},"seven_day":{"used_percentage":-5}}}"#.utf8))))
+        XCTAssertEqual(ws[0].usedPercent, 100)
+        XCTAssertEqual(ws[1].usedPercent, 0)
+    }
+}

@@ -173,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onSettingsChanged = { [weak self] in self?.settingsChanged() }
         store.onReloginClaude = { [weak self] in self?.reloginClaude() }
         store.onLoginCopilot = { [weak self] in self?.loginCopilot() }
+        store.onInstallClaudeBridge = { [weak self] in self?.installClaudeBridge() }
         store.onQuit = { NSApp.terminate(nil) }
         store.onMainHeight = { [weak self] h in self?.fitMainWindow(contentHeight: h) }   // 自动贴合（用户拖动后失效）
         store.onOpenWindow = { [weak self] page in                                        // 弹窗速览 → 打开完整窗口跳到该页
@@ -287,6 +288,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         refreshIfStale("打开主窗口")
+    }
+
+    /// 安装 Claude 本地读取：把打包的 statusline 脚本装到 ~/.tokenitor/ 并指向它。
+    /// 装完需重启 Claude Code 才会生效（它启动时读一次 settings.json）。
+    private func installClaudeBridge() {
+        let err = ClaudeStatusline.install()
+        let a = NSAlert()
+        if let err {
+            a.alertStyle = .warning
+            a.messageText = L("未能启用本地读取", "Couldn\u{2019}t enable local reading")
+            a.informativeText = err
+        } else {
+            a.messageText = L("已启用 Claude 本地读取", "Local Claude reading enabled")
+            a.informativeText = L("""
+            Claude Code 会把每轮的用量（5 小时 / 7 天窗口）交给本地文件，Tokenitor 只读它——不联网、不再撞该端点的限流。
+
+            ⚠️ 仅对**终端里运行的** Claude Code 有效：状态栏是终端 TUI 的组件，Claude 桌面 App 不渲染它，因此桌面 App 的会话不会产生这份数据（此时会自动回落到社区接口，最短 600 秒一次）。
+
+            请**重启 Claude Code** 使配置生效，之后在终端里发一次请求，卡片就会显示本地数据。原配置已备份为 settings.json.tokenitor-backup。
+            """, """
+            Claude Code will hand each turn\u{2019}s usage (5-hour / 7-day windows) to a local file that Tokenitor reads — no network, no hitting that endpoint\u{2019}s rate limit.
+
+            ⚠️ Applies to Claude Code running **in a terminal** only: the status line is a terminal-TUI component, so the Claude desktop app never renders it and its sessions won\u{2019}t produce this data (those fall back to the community endpoint, at most once per 600s).
+
+            **Restart Claude Code** for it to take effect, then send one request in the terminal and the card will show local data. Your previous config was backed up as settings.json.tokenitor-backup.
+            """)
+        }
+        a.addButton(withTitle: L("好", "OK"))
+        NSApp.activate(ignoringOtherApps: true)
+        a.runModal()
+        refresh(force: true)
     }
 
     /// Copilot GitHub OAuth Device Flow 授权：弹码 + 开浏览器 → 后台轮询 → 成功存钥匙串并开启 Copilot。

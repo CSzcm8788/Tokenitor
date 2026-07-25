@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Tokenitor"
 BUNDLE_ID="com.tokenitor.app"
-VERSION="1.5.4"
+VERSION="1.5.5"
 BUILD_NUM="$(date +%Y%m%d%H%M)"   # 每次构建递增的 build 号：让 macOS 注意到图标变化、刷新通知图标缓存
 # 产物溯源：把构建时的源码 commit 写进 Info.plist，发布时可核对「DMG 来自哪次提交」
 GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
@@ -44,6 +44,12 @@ fi
 # 社区定价快照（LiteLLM，MIT；由 sync-pricing.sh 在发版时更新）
 if [ -f "Pricing/model_prices.json" ]; then
     cp Pricing/model_prices.json Pricing/model_prices_meta.json "${APP_DIR}/Contents/Resources/"         && echo "  已打包定价快照 ($(python3 -c "import json;print(json.load(open('Pricing/model_prices_meta.json'))['updated'])" 2>/dev/null || echo '?'))"
+fi
+
+# Claude 用量本地桥（statusline 脚本；供 App 内「启用 Claude 本地读取」安装到 ~/.tokenitor/）
+if [ -f "claude-statusline.sh" ]; then
+    cp claude-statusline.sh "${APP_DIR}/Contents/Resources/claude-statusline.sh"
+    chmod +x "${APP_DIR}/Contents/Resources/claude-statusline.sh"
 fi
 
 # 一键重登脚本（供 App 内「重新登录 Claude」调用）

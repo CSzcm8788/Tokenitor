@@ -33,7 +33,12 @@ enum AIKind: String, CaseIterable, Identifiable {
     ///（官方未文档化；条款风险在说明页合规卡与开启前弹窗中完整披露）。
     var sourceTag: String {
         switch self {
-        case .claude, .copilot:       return L("社区", "Community")
+        // Claude 装了本地桥（statusline）后就是纯本地读取，胶囊随之变「本地」；
+        // 没装才回落到社区接口。见 ClaudeStatusline / ClaudeProvider 的降级链。
+        case .claude:
+            if case .installed = ClaudeStatusline.state() { return L("本地", "Local") }
+            return L("社区", "Community")
+        case .copilot:                return L("社区", "Community")
         case .codex, .gemini, .grok:  return L("本地", "Local")
         }
     }

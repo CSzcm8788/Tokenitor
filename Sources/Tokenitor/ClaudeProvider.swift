@@ -31,12 +31,41 @@ final class ClaudeProvider: UsageProvider {
         stateQueue.async { self.fetchOnQueue(completion: completion) }
     }
 
-    /// fetch 主体，只在 stateQueue 上运行。
+    /// 端点最短调用间隔。`api/oauth/usage` 从未被官方支持，社区就其「持续 429」提的多个
+    /// issue 都被关成 not planned，共识的轮询间隔已被拉到 300–900s；此前按全局 120s 打它
+    /// 就是「一直没数据」的直接原因。本地桥可用时根本不会走到这里。
+    private static let endpointMinInterval: TimeInterval = 600
+    private var lastEndpointCall: Date?
+
+    /// 本地桥数据的可用上限：超过这个岁数就认为不再代表当前用量，转而尝试端点。
+    private static let localMaxAge: TimeInterval = 24 * 3600
+
+    /// fetch 主体，只在 stateQueue 上运行。降级链：
+    /// ① 本地 statusline（零联网、零 429）→ ② oauth 端点（≥600s 一次）→ ③ 磁盘缓存(≤24h) → ④ 如实报错
     private func fetchOnQueue(completion: @escaping (ProviderSnapshot) -> Void) {
         ensureCacheLoaded()   // 启动后第一次从磁盘载入上次数据
+
+        // ① 本地桥：Claude Code 自己把 rate_limits 交给 statusline 脚本，脚本落盘，我们只读。
+        if let local = ClaudeStatusline.read(),
+           Date().timeIntervalSince(local.asOf) <= Self.localMaxAge {
+            lastWindows = local.windows          // 同时喂给缓存，端点彻底不可用时仍有兜底
+            lastOK = local.asOf
+            saveCache(local.windows)
+            completion(ProviderSnapshot(name: displayName, windows: local.windows, ok: true, error: nil,
+                                        plan: auth.currentPlan, dataAsOf: local.asOf))
+            return
+        }
+
         // 限流冷却中且有缓存 → 直接给缓存，跳过网络，避免继续撞 429
         if let cd = cooldownUntil, Date() < cd, !lastWindows.isEmpty {
             completion(staleSnapshot(reason: L("限流中", "Rate-limited")))
+            return
+        }
+        // ② 端点节流：距上次调用不足 600s 就不再打，直接用缓存（没缓存才让它去打）
+        if let last = lastEndpointCall,
+           Date().timeIntervalSince(last) < Self.endpointMinInterval,
+           !lastWindows.isEmpty {
+            completion(staleSnapshot(reason: L("按间隔节流", "Throttled")))
             return
         }
         auth.accessToken { token, err in
@@ -47,6 +76,7 @@ final class ClaudeProvider: UsageProvider {
                     else { completion(self.staleSnapshot(reason: err ?? L("凭证读取失败", "Credential read failed"))) }
                     return
                 }
+                self.lastEndpointCall = Date()
                 self.callUsage(token: token) { status in
                     self.stateQueue.async {
                         self.handle(status, refreshed: false, completion: completion)
@@ -108,8 +138,7 @@ final class ClaudeProvider: UsageProvider {
     private func failOrCached(_ msg: String) -> ProviderSnapshot {
         guard cacheUsable() else {
             if !lastWindows.isEmpty {
-                return .failed(displayName, L("\(msg)；上次数据已超过 24 小时，不再显示",
-                                              "\(msg); last data is over 24h old and is no longer shown"))
+                return .failed(displayName, L("\(msg)；上次数据已超过 24 小时，不再显示", "\(msg); last data is over 24h old and is no longer shown") + localBridgeHint)
             }
             return .failed(displayName, msg)
         }
@@ -118,10 +147,19 @@ final class ClaudeProvider: UsageProvider {
                                 isStale: true, dataAsOf: lastOK)
     }
 
+    /// 端点这条路走不通时给的可操作建议：装本地桥（零联网、零 429）。
+    private var localBridgeHint: String {
+        if case .installed = ClaudeStatusline.state() {
+            return L("；本地读取已启用，在 Claude Code 里发一次请求即会刷新",
+                     "; local reading is enabled — send one request in Claude Code to refresh it")
+        }
+        return L("；建议到「设置 → 快捷操作」启用 Claude 本地读取（零联网、不再限流）",
+                 "; consider enabling local Claude reading in Settings → Quick Actions (no network, no rate limits)")
+    }
+
     private func staleSnapshot(reason: String) -> ProviderSnapshot {
         guard cacheUsable() else {
-            return .failed(displayName, L("\(reason)；上次数据已超过 24 小时，不再显示",
-                                          "\(reason); last data is over 24h old and is no longer shown"))
+            return .failed(displayName, L("\(reason)；上次数据已超过 24 小时，不再显示", "\(reason); last data is over 24h old and is no longer shown") + localBridgeHint)
         }
         return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
                                 error: nil, note: "\(reason)，显示上次数据 \(timeStr())",

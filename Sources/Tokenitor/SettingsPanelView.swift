@@ -135,6 +135,9 @@ struct SettingsPanelView: View {
                         .help(L("用 GitHub device flow 显式授权，读取 Copilot 高级用量", "Authorize via GitHub device flow to read Copilot premium usage"))
                         .pressableHover()
                     Button(L("授权 Claude", "Authorize Claude")) { store.onReloginClaude() }
+                    Button(claudeBridgeTitle) { store.onInstallClaudeBridge() }
+                        .help(L("让 Claude Code 把用量交给本地文件，Tokenitor 只读它——零联网、不再撞该端点的限流。\n⚠️ 仅**终端版** Claude Code 有效：状态栏是终端 TUI 的组件，Claude 桌面 App 不渲染它，因而不会产生数据。装完需重启 Claude Code。",
+                                "Lets Claude Code hand its usage to a local file that Tokenitor reads — no network, no hitting that endpoint\u{2019}s rate limit.\n⚠️ Works with the **terminal** Claude Code only: the status line is a terminal-TUI component, so the Claude desktop app never renders it and produces no data. Restart Claude Code after installing."))
                         .help(L("在终端里用订阅账号 /login 一次，生成 Tokenitor 可读的凭证", "Run /login once in Terminal with your subscription account"))
                         .pressableHover()
                     Spacer()
@@ -181,6 +184,14 @@ struct SettingsPanelView: View {
     private var snoozeUntilText: String {
         let df = DateFormatter(); df.dateFormat = "HH:mm"
         return df.string(from: Date(timeIntervalSince1970: Settings.shared.alertsSnoozedUntil))
+    }
+
+    /// 按钮标题随安装状态变化（已装就显示「已启用」并可重装/修复）。
+    private var claudeBridgeTitle: String {
+        if case .installed = ClaudeStatusline.state() {
+            return L("本地读取已启用", "Local Reading On")
+        }
+        return L("启用本地读取", "Enable Local Read")
     }
 
     private func sectionHeader(_ title: String, _ desc: String) -> some View {
