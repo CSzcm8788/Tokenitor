@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ── 视图：页面导航（⌘1/⌘2）+ 刷新（⌘R，从 app 菜单移入）
         let viewItem = NSMenuItem(); mainMenu.addItem(viewItem)
         let viewMenu = NSMenu(title: L("视图", "View"))
-        viewMenu.addItem(withTitle: "Dashboard", action: #selector(showUsagePage), keyEquivalent: "1").target = self
+        viewMenu.addItem(withTitle: "Overview", action: #selector(showUsagePage), keyEquivalent: "1").target = self   // 与侧栏同名
         viewMenu.addItem(withTitle: L("Token 用量", "Token Usage"), action: #selector(showTokensPage), keyEquivalent: "2").target = self
         viewMenu.addItem(.separator())
         viewMenu.addItem(withTitle: L("刷新", "Refresh"), action: #selector(menuRefresh), keyEquivalent: "r").target = self
@@ -106,9 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openGitHub() {
         NSWorkspace.shared.open(URL(string: "https://github.com/CSzcm8788/Tokenitor")!)
     }
-    @objc private func checkUpdates() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/CSzcm8788/Tokenitor/releases/latest")!)
-    }
+    @objc private func checkUpdates() { UpdateCheck.checkNow() }
 
     /// 一键重登 Claude：在 Terminal 里运行打包的脚本，完成订阅 /login 并清掉失效缓存。
     @objc private func reloginClaude() {
@@ -158,6 +156,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: .NSProcessInfoPowerStateDidChange,
                                                object: nil, queue: .main) { [weak self] _ in
             self?.restartTimer()
+        }
+        // 系统唤醒：睡眠期间 Timer 完全不触发，醒来后若不补一刷，最长要等一整个间隔才更新
+        //（睡一夜后点开菜单栏看到的会是昨晚的数字）。重启计时器对齐节拍 + 立即补刷。
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.restartTimer()
+            self?.refreshIfStale("系统唤醒")
         }
         Disclaimer.presentIfNeeded()   // 首次启动：免责声明（不同意则退出）
         // SwiftUI 展示层的动作回调
@@ -217,8 +222,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable, .miniaturizable, .resizable],   // 可缩放
             backing: .buffered, defer: false)
         window.title = "Tokenitor"
-        window.isOpaque = false                         // 半透明：配合 SwiftUI 里的玻璃材质
+        // 半透明窗口 —— 「动态玻璃」的地基：窗口本身不画底，由内容里的
+        // VisualEffectView(behindWindow) 把桌面模糊透进来（见 DashboardView）。这三行是
+        // 1.2.0 起的原始设计，**不要改成不透明窗口**：那会让整个窗口失去毛玻璃，退化成普通灰底。
+        window.isOpaque = false
         window.backgroundColor = .clear
+        // 内容延伸到标题栏之下（fullSizeContentView）：底下那块 behindWindow 毛玻璃因此能
+        // **连续**覆盖标题栏与内容区，浅色模式下不再出现「白工具栏 + 灰内容」两截。
+        window.styleMask.insert(.fullSizeContentView)
+        // 但标题栏**必须保留自身材质**（titlebarAppearsTransparent = false）：
+        // 它负责遮挡滚动到其下的内容。曾设为 true，结果滚动的正文直接穿过顶栏、与导航标题叠字。
+        // 材质叠在下面的毛玻璃上会自然融合，不会像「无内容可混合」时那样发白。
+        window.titlebarAppearsTransparent = false
+        // 标题栏下沿的系统 hairline，把 chrome 与内容分开（刷新按钮不再像悬空）。
+        window.titlebarSeparatorStyle = .line
+        // 空工具栏 + .unified 样式：移除工具栏按钮后，macOS 会从「统一工具栏」高度退回
+        // 「纯标题栏」高度（约 52pt → 28pt），顶部瞬间变局促。挂一个没有任何 item 的
+        // NSToolbar 即可要回标准的舒展高度——不显示任何按钮，只保留原生留白与标题位置。
+        let tb = NSToolbar(identifier: "TokenitorMain")
+        tb.showsBaselineSeparator = false      // 分隔线由 titlebarSeparatorStyle 统一负责
+        window.toolbar = tb
+        // .unifiedCompact 实测 = **40.0pt**（对照：.unified 66pt、.expanded 48pt、无工具栏 28pt）。
+        // macOS 原生的紧凑统一工具栏，不需要私有 API 或自绘去凑高度。
+        window.toolbarStyle = .unifiedCompact
         window.contentViewController = hc
         window.contentMinSize = NSSize(width: 520, height: 400)
         window.delegate = self                          // 关窗时把页面重置回用量页（windowWillClose）
@@ -235,6 +261,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// 数据「够新」的判定：比这个更旧才在打开界面/系统唤醒时补一刷。
+    /// 取远小于刷新间隔的值——刚自动刷过就别重复打网络。
+    private static let freshWindow: TimeInterval = 30
+
+    /// 打开界面或系统唤醒时按需补刷。移除工具栏刷新按钮后，靠这条保证「一打开就是新数据」；
+    /// 有 freshWindow 门槛，反复开关窗不会变成重复请求。
+    private func refreshIfStale(_ reason: String) {
+        let age = store.lastUpdate.map { Date().timeIntervalSince($0) } ?? .infinity
+        guard age > Self.freshWindow else { return }
+        log(String(format: "%@ → 补刷一次（数据已 %.0fs）", reason, min(age, 99999)))
+        refresh()
+    }
+
     private func showWindow() {
         setupWindow()
         if window.contentViewController == nil {   // 关窗时已释放 → 重建（保持用户窗口尺寸不动）
@@ -247,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        refreshIfStale("打开主窗口")
     }
 
     /// Copilot GitHub OAuth Device Flow 授权：弹码 + 开浏览器 → 后台轮询 → 成功存钥匙串并开启 Copilot。
@@ -290,6 +330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         log("creating StatusBarController…")
         statusController = StatusBarController(store: store)
         statusController.onRefreshNow = { [weak self] in self?.refresh(force: true) }
+        statusController.onPopoverWillShow = { [weak self] in self?.refreshIfStale("打开弹层") }
         statusController.onQuit = { NSApp.terminate(nil) }
         statusController.onShowHelp = { [weak self] in self?.showHelp() }
         log("StatusBarController created")
@@ -384,9 +425,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if store.page == .tokens { refreshTokens() }   // 仅在查看 Token 页时随主刷新更新 token UI（其余靠低频 tick）
         // 正在抓取时不并发；记一个挂起标记，本轮结束后自动再抓一次（确保新开启的 AI 立即出现）
+        // 并发保护由这个私有标记承担（不要再为此加 @Published——没有 UI 观察者的
+        // @Published 每轮会白触发两次 SwiftUI 重绘）。
         if isFetching { pendingRefresh = true; return }
         isFetching = true
-        store.isRefreshing = true   // 工具栏刷新按钮转圈
         pendingRefresh = false
         fetchGeneration += 1
         let gen = fetchGeneration
@@ -472,7 +514,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 收尾：解除抓取锁；若期间有挂起的刷新请求，立刻再抓一次。
     private func finishFetch() {
         isFetching = false
-        store.isRefreshing = false
         store.markFetchComplete()
         if pendingRefresh {
             pendingRefresh = false

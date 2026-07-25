@@ -88,6 +88,45 @@ struct ProviderChipsRow: View {
     }
 }
 
+/// 三端共享的**卡片头**：AI 名独占第一行，胶囊行第二行，下方一条细分隔线与用量条隔开。
+/// 此前名字与胶囊挤在同一行——窄刘海（约 312pt）里胶囊多时（如 Grok 的
+/// LIVE+本地+X Premium+数据时间）会把 AI 名压成竖排（「G r o k」）。两行版让名字永不被挤，
+/// 也让「身份/状态」与「用量数字」在视觉上分层。
+struct ProviderCardHeader: View {
+    let snap: ProviderSnapshot
+    var serviceStatus: ServiceStatus? = nil
+    /// 卡片形态：hero（主窗口仪表）/ detailed（菜单栏弹层）/ compact（刘海面板）
+    var hero: Bool = false
+    var compact: Bool = false
+    /// hero 专属：右上角「更新于」相对时间胶囊。
+    var updatedAt: Date? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 5) {
+            HStack(spacing: 8) {
+                Text(snap.name)
+                    .font(hero ? .pageTitle : .sectionTitle)
+                    .lineLimit(1)
+                    .fixedSize()          // 名字优先，绝不被胶囊压缩换行
+                    .help(AIKind.from(name: snap.name)?.coverage ?? "")   // 悬停说明该 % 统计了什么
+                Spacer(minLength: 0)
+                if let t = updatedAt {
+                    ProviderChipsRow.chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),
+                                          fg: .secondary, bg: Color.primary.opacity(0.06))
+                }
+            }
+            HStack(spacing: 0) {
+                ProviderChipsRow(snap: snap, serviceStatus: serviceStatus, compact: compact)
+                Spacer(minLength: 0)
+            }
+            // 头与用量条之间的细线：比卡间分隔线更淡，只做分层不抢注意力
+            Rectangle().fill(Color.primary.opacity(0.09))
+                .frame(height: 1)
+                .padding(.top, compact ? 1 : 2)
+        }
+    }
+}
+
 /// 单个 AI 的玻璃卡片，三种形态：
 ///  · hero     —— 主窗口仪表页：标题 + 状态/来源/更新时间胶囊 + 大数字统计瓦片 + 用量条
 ///  · detailed —— 菜单栏弹层：标题 + 更新时间副标题 + 用量条（紧凑速览）
@@ -106,7 +145,7 @@ struct AIMonitorPanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : (hero ? 12 : 10)) {
-            if hero { heroHeader } else { plainHeader }
+            cardHeader
 
             if snap.ok {
                 ForEach(Array(snap.windows.enumerated()), id: \.offset) { _, w in
@@ -126,27 +165,11 @@ struct AIMonitorPanel: View {
 
     // MARK: - 头部
 
-    /// detailed / compact：标题 + 统一胶囊行（与 hero 同源，三端显示一致）。
-    private var plainHeader: some View {
-        HStack(spacing: compact ? 6 : 7) {
-            Text(snap.name)
-                .font(.sectionTitle)   // 三端统一：紧凑形态也不再缩小 AI 名
-            ProviderChipsRow(snap: snap, serviceStatus: serviceStatus, compact: compact)
-            Spacer(minLength: 0)
-        }
-    }
-
-    /// hero：大标题 + 统一胶囊行 + 更新时间胶囊。
-    private var heroHeader: some View {
-        HStack(spacing: 8) {
-            Text(snap.name).font(.pageTitle)
-            ProviderChipsRow(snap: snap, serviceStatus: serviceStatus)
-            Spacer(minLength: 0)
-            if let t = updatedAt {
-                ProviderChipsRow.chip(L("更新于 ", "Updated ") + formatUpdatedAgo(t),
-                                      fg: .secondary, bg: Color.primary.opacity(0.06))
-            }
-        }
+    /// 三端同款两行头（见 ProviderCardHeader）；hero 额外挂「更新于」胶囊。
+    private var cardHeader: some View {
+        ProviderCardHeader(snap: snap, serviceStatus: serviceStatus,
+                           hero: hero, compact: compact,
+                           updatedAt: hero ? updatedAt : nil)
     }
 
     // MARK: - 用量条

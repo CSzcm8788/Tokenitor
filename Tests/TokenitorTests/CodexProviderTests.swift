@@ -77,3 +77,20 @@ final class CodexProviderTests: XCTestCase {
         XCTAssertNil(CodexProvider.parseRateLimitsLine(line))
     }
 }
+
+/// 空 rate_limits 事件（primary/secondary 皆 null）不得被当成「最新有效数据」——
+/// 实测 Codex 会发这种事件，若采纳它，卡片会因无窗口而整个消失，丢掉几小时前的真实用量。
+extension CodexProviderTests {
+
+    func testEmptyRateLimitsEventHasNoWindowData() throws {
+        let line: Substring = #"{"timestamp":"2026-07-22T13:41:17.241Z","payload":{"type":"token_count","rate_limits":{"primary":null,"secondary":null,"credits":{"balance":"0"},"plan_type":"plus"}}}"#
+        let hit = try XCTUnwrap(CodexProvider.parseRateLimitsLine(line), "行本身应能解析")
+        XCTAssertFalse(CodexProvider.hasWindowData(hit.0), "无 primary/secondary → 不算有效用量事件")
+    }
+
+    func testRealRateLimitsEventHasWindowData() throws {
+        let line: Substring = #"{"timestamp":"2026-07-22T09:12:57.200Z","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":82.0,"window_minutes":10080,"resets_at":1785299395},"secondary":null,"plan_type":"plus"}}}"#
+        let hit = try XCTUnwrap(CodexProvider.parseRateLimitsLine(line))
+        XCTAssertTrue(CodexProvider.hasWindowData(hit.0))
+    }
+}

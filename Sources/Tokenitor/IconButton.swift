@@ -39,6 +39,27 @@ struct IconButton: View {
     }
 }
 
+/// 圆形轻量图标按钮：关于页社交入口与主窗口工具栏刷新共用同一视觉规格
+///（32pt 圆底 + 7% 填充 + 细描边 + 悬停放大），避免工具栏落入系统默认凸起样式。
+struct CircleGlyphButton<Icon: View>: View {
+    let help: String
+    let action: () -> Void
+    @ViewBuilder let icon: () -> Icon
+
+    var body: some View {
+        Button(action: action) {
+            icon()
+                .foregroundStyle(.primary)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.primary.opacity(0.07)))
+                .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .pressableHover(scale: 1.08)
+        .help(help)
+    }
+}
+
 /// 统一悬停反馈：轻微放大 + 提亮 + 手型光标。
 /// 用于所有自定义可点控件（社交按钮、设置页动作按钮、分段控件等），与 IconButton 手感一致。
 struct PressableHover: ViewModifier {

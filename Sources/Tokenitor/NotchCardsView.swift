@@ -8,7 +8,7 @@ struct NotchCardsView: View {
         VStack(alignment: .leading, spacing: 13) {   // AI 块间距放宽一档，避免拥挤
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Tokenitor")
-                    .font(.sectionTitle)
+                    .font(.pageTitle)
                     .foregroundStyle(.primary)
                 Spacer()
                 if let t = store.lastUpdate {
@@ -35,8 +35,8 @@ struct NotchCardsView: View {
                 }
             }
         }
-        .padding(14)
-        .frame(width: 300, alignment: .leading)
+        .padding(16)
+        .frame(width: 360, alignment: .leading)   // 300 → 360：此前整体偏小，胶囊多时更显局促
         .glassCard(cornerRadius: 18)
         .padding(6)            // 面板外留一点边，避免贴边
         .fixedSize(horizontal: false, vertical: true)
@@ -46,20 +46,15 @@ struct NotchCardsView: View {
     private func providerBlock(_ snap: ProviderSnapshot) -> some View {
         let warn = Settings.shared.warnAt, crit = Settings.shared.critAt
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(snap.name).font(.sectionTitle)   // 与弹层/主窗口同款（13pt 半粗），三端 AI 名一致
-                // 与仪表 / 弹层统一的胶囊行（状态 / 来源 / 档位 / 服务状态）
-                ProviderChipsRow(snap: snap,
-                                 serviceStatus: store.serviceStatus[snap.name],
-                                 compact: true)
-                Spacer()
-            }
+            // 与仪表 / 弹层完全同源的两行卡片头（名字独占一行 + 胶囊行 + 细分隔线）
+            ProviderCardHeader(snap: snap,
+                               serviceStatus: store.serviceStatus[snap.name])
             if snap.ok {
                 ForEach(Array(snap.windows.enumerated()), id: \.offset) { _, w in
                     let level = UsageLevel.from(remaining: w.remainingPercent, warnAt: warn, critAt: crit)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
-                            Circle().fill(levelColor(level)).frame(width: 6, height: 6)
+                            Circle().fill(levelColor(level)).frame(width: 7, height: 7)
                             Text(w.label)
                                 .font(.num)
                                 .foregroundStyle(.secondary)
@@ -73,7 +68,7 @@ struct NotchCardsView: View {
                             }
                         }
                         // 细进度条：与主窗口同色同形（统一三态色板）
-                        UsageBar(fraction: w.remainingPercent / 100, color: levelColor(level), height: 5, segmented: w.label == "5h")
+                        UsageBar(fraction: w.remainingPercent / 100, color: levelColor(level), height: 6, segmented: w.label == "5h")
                             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: w.remainingPercent)
                     }
                 }

@@ -15,7 +15,7 @@ final class HelpViewController: NSViewController {
 struct HelpView: View {
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 18) {
                 hero
 
                 // ⓪ 快速入门：三步上手，给第一次打开的用户看；技术细节在下面各卡片。
@@ -24,29 +24,32 @@ struct HelpView: View {
                     bullet(L("**2 · 启用 Claude / Copilot（可选）**：二者经由社区通用接口（官方未文档化）读取，默认关闭；在「设置」中打开开关并完成一次授权即可显示。", "**2 · Enable Claude / Copilot (optional)**: both read via community APIs (not officially documented) and are off by default; turn on the toggle in Settings and authorize once."))
                     bullet(L("**3 · 读懂卡片**：进度条表示剩余配额，5 小时窗口带 20% / 50% 两道刻度；绿 / 黄 / 红 对应 充足 / 偏低 / 紧急；`LIVE` / `缓存` / `离线` 表示数据新鲜度；↻ 后为重置倒计时。", "**3 · Reading a card**: bars show remaining quota — the 5-hour window carries tick marks at 20% and 50%; green / amber / red mean healthy / low / critical; `LIVE` / `Cached` / `Offline` indicate data freshness; ↻ precedes the reset countdown."))
                     note(L("左键菜单栏图标即可速览；点刘海面板任意位置打开完整主窗口。关闭主窗口不会退出应用（后台继续监测），退出请用 ⌘Q。", "Left-click the menu-bar icon for a glance; click anywhere on the notch panel to open the full window. Closing the main window doesn\u{2019}t quit the app (monitoring continues in the background) — quit with ⌘Q."))
+                    note(L("**刷新是自动的**：按设置的间隔定时刷（默认 120s），打开主窗口或菜单栏弹层时若数据偏旧会补刷一次，系统唤醒后也会立即补刷。需要立刻刷新时用 ⌘R、弹层里的「刷新」，或右键菜单栏图标选「立即刷新」。", "**Refreshing is automatic**: on your chosen interval (120s by default), plus a top-up when you open the main window or the menu-bar popover with stale data, and immediately after the system wakes. To refresh right now: ⌘R, \u{201C}Refresh\u{201D} in the popover, or right-click the menu-bar icon."))
                 }
 
                 // ① 用量页（配额 %）的数据源：端点/路径 · 官方性 · 默认开关。
                 card("network", L("数据来源 · 用量页（配额 %）", "Data Sources · Usage Page (quota %)")) {
+                    note(L("**先看清「覆盖范围」**：各家百分比统计的东西不同——有的是整个账号（含网页/桌面端），有的只是本机 CLI 估算，Grok 更是跨产品共享池。每行末尾都注明了口径，卡片上把鼠标停在 AI 名上也能看到。",
+                           "**Mind the coverage first**: each vendor\u{2019}s percentage measures something different — some cover the whole account (including web/desktop), one is a local CLI estimate, and Grok\u{2019}s is a cross-product shared pool. Each row states its scope; hovering an AI name on a card shows the same note."))
                     providerRow("Codex", "~/.codex/sessions/**/*.jsonl",
                                 [(L("本地", "Local"), .ok)],
-                                L("增量解析 `rate_limits`（5h/周窗口按 window_minutes 自动识别，兼容新版仅周窗口），不联网；有「限额重置额度」余额时显示胶囊；数据滞后超 3 分钟显示「数据 X分钟前」。", "Incrementally parses `rate_limits` (5h/weekly windows auto-detected via window_minutes, incl. the new weekly-only schema), no network; a Resets chip appears when reset credits are available; \u{201C}Data Xm ago\u{201D} shows when the event lags >3 min."))
+                                L("增量解析 `rate_limits`（5h/周窗口按 window_minutes 自动识别，兼容新版仅周窗口），不联网；有「限额重置额度」余额时显示胶囊；数据滞后超 3 分钟显示「数据 X分钟前」。", "Incrementally parses `rate_limits` (5h/weekly windows auto-detected via window_minutes, incl. the new weekly-only schema), no network; a Resets chip appears when reset credits are available; \u{201C}Data Xm ago\u{201D} shows when the event lags >3 min.") + "\n" + AIKind.codex.coverage)
                     rowDivider
                     providerRow("Gemini", "~/.gemini/tmp/<user>/logs.json",
                                 [(L("本地估算", "Local estimate"), .ok)],
-                                L("今日请求数 ÷ 每日额度的**本地估算**，0 点重置；以 `logs.json` 为准计数（会话文件仅在它缺失时兜底，避免同一批提问被数两遍）。官方额度按账号类型浮动（约 250–2000/天）且本地读不到，分母可在设置里调整（默认 1000）。个人账号的旧版 Gemini CLI 已于 2026-06 迁移至 Antigravity CLI，本项仅在检测到 `~/.gemini` 近期活动时显示。", "A **local estimate**: today\u{2019}s request count ÷ your daily limit, resetting at local midnight; counted from `logs.json` (session files are only a fallback, so the same prompts aren\u{2019}t counted twice). The official limit varies by account type (~250–2000/day) and isn\u{2019}t readable locally, so the divisor is adjustable in Settings (default 1000). Personal accounts moved from the legacy Gemini CLI to Antigravity CLI in June 2026; this card only appears when `~/.gemini` shows recent activity."))
+                                L("今日请求数 ÷ 每日额度的**本地估算**，0 点重置；以 `logs.json` 为准计数（会话文件仅在它缺失时兜底，避免同一批提问被数两遍）。官方额度按账号类型浮动（约 250–2000/天）且本地读不到，分母可在设置里调整（默认 1000）。个人账号的旧版 Gemini CLI 已于 2026-06 迁移至 Antigravity CLI，本项仅在检测到 `~/.gemini` 近期活动时显示。", "A **local estimate**: today\u{2019}s request count ÷ your daily limit, resetting at local midnight; counted from `logs.json` (session files are only a fallback, so the same prompts aren\u{2019}t counted twice). The official limit varies by account type (~250–2000/day) and isn\u{2019}t readable locally, so the divisor is adjustable in Settings (default 1000). Personal accounts moved from the legacy Gemini CLI to Antigravity CLI in June 2026; this card only appears when `~/.gemini` shows recent activity.") + "\n" + AIKind.gemini.coverage)
                     rowDivider
                     providerRow("Grok", "~/.grok/logs/unified.jsonl",
                                 [(L("本地", "Local"), .ok)],
-                                L("读 Grok Build 自己拉取并落盘的 billing 事件：周共享池已用 %、精确重置时间、订阅档位——零联网、不碰任何端点。注意口径：xAI 付费档为全产品（Chat/Imagine/Build/API）**共享**周池，此百分比即整体用量。", "Reads the billing events Grok Build itself fetches and writes locally: weekly shared-pool used %, exact reset time, subscription tier — zero network, no endpoints touched. Note the semantics: paid xAI tiers share **one** weekly pool across all products (Chat/Imagine/Build/API); this percentage is that overall usage."))
+                                L("读 Grok Build 自己拉取并落盘的 billing 事件：周共享池已用 %、精确重置时间、订阅档位——零联网、不碰任何端点。注意口径：xAI 付费档为全产品（Chat/Imagine/Build/API）**共享**周池，此百分比即整体用量。", "Reads the billing events Grok Build itself fetches and writes locally: weekly shared-pool used %, exact reset time, subscription tier — zero network, no endpoints touched. Note the semantics: paid xAI tiers share **one** weekly pool across all products (Chat/Imagine/Build/API); this percentage is that overall usage.") + "\n" + AIKind.grok.coverage)
                     rowDivider
                     providerRow("Claude", "api.anthropic.com/api/oauth/usage",
                                 [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
-                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存（缓存超过 24 小时即不再显示，改报读取失败）· 连续失败自动退避 10 分钟（手动刷新立即重试并清除冷却）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited (cache older than 24h is dropped and reported as a read failure); backs off for 10 min after repeated failures (manual refresh clears the cooldown and retries immediately)."))
+                                L("5h / 周（含 Sonnet）· 凭证只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**，过期时请在 Claude Code 里任意请求一次）· 诚实 UA · 限流走缓存（缓存超过 24 小时即不再显示，改报读取失败）· 连续失败自动退避 10 分钟（手动刷新立即重试并清除冷却）。", "5h / weekly windows (incl. Sonnet) · reads Claude Code\u{2019}s credentials **read-only, never refreshes them** (when expired, run any request in Claude Code) · honest UA · falls back to cache when rate-limited (cache older than 24h is dropped and reported as a read failure); backs off for 10 min after repeated failures (manual refresh clears the cooldown and retries immediately).") + "\n" + AIKind.claude.coverage)
                     rowDivider
                     providerRow("Copilot", "api.github.com/copilot_internal/user",
                                 [(L("社区接口", "Community API"), .warn), (L("默认关", "Off by default"), .mut)],
-                                L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot` · 首次开启需确认风险 · 接口字段缺失时显示读取失败，绝不假装额度是满的。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot` · risk confirmation on first enable · if the endpoint\u{2019}s fields go missing it reports a read failure rather than pretending the quota is full."))
+                                L("月度 premium 剩余 %，UTC 1 号重置 · 授权走 GitHub device flow，或本机 `~/.config/github-copilot` · 首次开启需确认风险 · 接口字段缺失时显示读取失败，绝不假装额度是满的。", "Monthly premium remaining %, resets on the 1st (UTC) · authorize via GitHub device flow, or local `~/.config/github-copilot` · risk confirmation on first enable · if the endpoint\u{2019}s fields go missing it reports a read failure rather than pretending the quota is full.") + "\n" + AIKind.copilot.coverage)
                     note(L("只显示你在用（已安装 / 登录）的 AI，其余自动隐藏。", "Only tools you actually use (installed / signed in) are shown; the rest hide automatically."))
                     note(L("服务状态监控（可在设置关闭）：每 5 分钟轮询各厂商公开状态页，**组件级**判定——只看与该 AI 相关的组件（如 Codex API / Claude Code / Copilot），无关组件（如 FedRAMP）不会误报；异常时卡片显示「服务降级 / 中断」胶囊（悬停看具体组件）、菜单栏图标加指示点。", "Service status monitor (can be disabled in Settings): polls each vendor\u{2019}s public status page every 5 minutes at the **component level** — only components relevant to that AI (Codex API / Claude Code / Copilot) count, so unrelated ones (e.g. FedRAMP) can\u{2019}t cause false alarms; on incidents the card shows a Degraded / Outage chip (hover for details) and the menu-bar icon gets a dot."))
                     note(L("通知告警：某窗口剩余量跌破「低用量 / 紧急」阈值时各通知一次，回升后重置、可再次触发；限流时展示的缓存旧数据不触发告警。可在设置里**临时静音 1/4/8 小时**，到期自动恢复。低电量模式下刷新间隔自动 ×4 省电。", "Alerts: one notification when a window drops below the low / critical threshold, re-armed after recovery; stale cached data never triggers alerts. Snooze for 1/4/8 hours in Settings (auto-resumes); in Low Power Mode the refresh interval is automatically 4× longer."))
@@ -79,7 +82,7 @@ struct HelpView: View {
 
                 // ⑤ 各工具没数据时的校准。
                 card("wrench.and.screwdriver", L("校准", "Setup")) {
-                    bullet(L("**Claude** — 订阅账号 `/login` 一次（接第三方 API 时先移开 `~/.claude/settings.json`）。", "**Claude** — run `/login` once with your subscription account (move `~/.claude/settings.json` aside first if you use a third-party API)."))
+                    bullet(L("**Claude** — 订阅账号 `/login` 一次（接第三方 API 时先移开 `~/.claude/settings.json`）。若卡片显示「钥匙串未授权」：新版 Claude Code 把凭证存在钥匙串、且只授权了自己，本应用读取会弹「允许访问钥匙串」——请点**「始终允许」**（只点「允许」的话每个新进程都要再点一次，后台刷新时无人点击就会读取失败）。", "**Claude** — run `/login` once with your subscription account (move `~/.claude/settings.json` aside first if you use a third-party API). If the card says keychain access wasn\u{2019}t granted: recent Claude Code versions keep credentials in the Keychain authorized only to themselves, so reading them prompts \u{201C}allow access to your keychain\u{201D} — choose **Always Allow** (with plain \u{201C}Allow\u{201D}, every new process asks again, and background refreshes fail with nobody there to click)."))
                     bullet(L("**Copilot** — 设置 → 授权（device flow），或本机 Copilot 插件已登录。", "**Copilot** — Settings → Authorize (device flow), or an already signed-in local Copilot plugin."))
                     bullet(L("**Gemini** — 装好、登录、用一次即出。", "**Gemini** — install, sign in, use it once."))
                 }
@@ -99,8 +102,9 @@ struct HelpView: View {
     // MARK: 顶部
 
     private var hero: some View {
+        // 不在此重复画「Tokenitor / 说明」大标题：侧栏详情已有 navigationTitle「说明」，
+        // 独立说明窗也有窗口标题；再画一层会顶进透明标题栏、与导航标题叠字（见 UI 回归）。
         VStack(alignment: .leading, spacing: 3) {
-            Text("Tokenitor").font(.pageTitle)
             Text(L("菜单栏 AI 用量速览 · 剩余配额 + 今日 token 成本 · 纯本地", "Menu-bar AI usage at a glance · remaining quota + today\u{2019}s token cost · fully local"))
                 .font(.uiCaption).foregroundStyle(.secondary)
             HStack(spacing: 14) {
@@ -124,8 +128,8 @@ struct HelpView: View {
 
     private func card<Content: View>(_ icon: String, _ title: String,
                                      @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
                 // 统一规格的分区图标：单色符号 + 24pt 圆角容器（不同 SF Symbol 视觉宽度不一，
                 // 用固定容器抹平大小差异，符合系统设置的图标块风格）
                 Image(systemName: icon)
@@ -138,10 +142,10 @@ struct HelpView: View {
             }
             content()
         }
-        .padding(15)
+        .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.045)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.045)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(0.07), lineWidth: 0.5))
     }
 
     private var rowDivider: some View { Divider().opacity(0.4) }
@@ -150,7 +154,7 @@ struct HelpView: View {
 
     private func providerRow(_ name: String, _ endpoint: String,
                              _ tags: [(String, TagKind)], _ sub: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text(name).font(.uiBody).fontWeight(.medium)
                 ForEach(tags, id: \.0) { tagPill($0.0, $0.1) }
@@ -158,19 +162,21 @@ struct HelpView: View {
             }
             codeChip(endpoint)
             Text(markdown(sub)).font(.uiCaption).foregroundStyle(.secondary)
+                .lineSpacing(3.5)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 3)
+        .padding(.vertical, 6)
     }
 
     private func codeChip(_ s: String) -> some View {
         Text(s)
             .font(.system(size: 12, design: .monospaced))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).stroke(Color.primary.opacity(0.10), lineWidth: 0.5))
+            .foregroundStyle(.primary.opacity(0.85))
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.primary.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -192,17 +198,23 @@ struct HelpView: View {
     /// 阅读页只保留「正文 / 副文」两级灰度，层级过多会显得深浅不一；同样走 markdown 渲染。
     private func note(_ t: String) -> some View {
         Text(markdown(t)).font(.uiCaption).foregroundStyle(.secondary)
+            .lineSpacing(3.5)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 1)
     }
 
+    /// 一条要点：圆点 + 悬挂缩进的正文。行距放宽到 4pt——本页多为长句，
+    /// 密排时最难读；留白比字号更能决定「清爽」。
     private func bullet(_ s: String) -> some View {
-        HStack(alignment: .top, spacing: 7) {
-            Circle().fill(Color.secondary.opacity(0.5)).frame(width: 4, height: 4).padding(.top, 7)
+        HStack(alignment: .top, spacing: 9) {
+            Circle().fill(Color.secondary.opacity(0.5)).frame(width: 4, height: 4).padding(.top, 8)
             Text(markdown(s)).font(.uiBody).foregroundStyle(.secondary)
+                .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 1)
     }
 
     /// 解析行内 markdown：`` `code` `` 段落套等宽 + 淡底高亮，**加粗**保留。
@@ -213,7 +225,7 @@ struct HelpView: View {
         let codeRanges = a.runs.filter { $0.inlinePresentationIntent?.contains(.code) == true }.map { $0.range }
         for r in codeRanges {
             a[r].font = .system(size: 12, design: .monospaced)
-            a[r].backgroundColor = Color.primary.opacity(0.08)
+            a[r].backgroundColor = Color.primary.opacity(0.06)
         }
         return a
     }

@@ -16,7 +16,7 @@ Supported today: **Claude**, **Codex**, **Gemini CLI**, **Grok (Grok Build)**, *
 
 ## What it does
 
-Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; right-click shows a small menu. Clicking an item opens the **full window** — a standard macOS `NavigationSplitView` (the same layout as System Settings) with a sidebar (Dashboard / Token / Language / Appearance / Settings / About / Help) and a grouped `Form` settings page; you can also open it from the Dock icon. Each AI is a card labeled with its **name only** (no logos), a colored progress bar, remaining %, and a reset countdown. Light/dark follows the system or can be switched manually. Hovering the notch shows a compact panel. Standard macOS menus are in place — View (Dashboard ⌘1 / Token Usage ⌘2 / Refresh ⌘R), Window (⌘M/⌘W), and Help (guide, GitHub, check for updates) — and refresh lives in the window toolbar with a native progress spinner while fetching.
+Tokenitor lives in the **menu bar**. Left-click opens a compact usage popover; right-click shows a small menu. Clicking an item opens the **full window** — a standard macOS `NavigationSplitView` (the same layout as System Settings) with a sidebar (Overview / Token / Language / Appearance / Settings / About / Help) and a grouped `Form` settings page; you can also open it from the Dock icon. Each AI is a card labeled with its **name only** (no logos), a colored progress bar, remaining %, and a reset countdown. Light/dark follows the system or can be switched manually. Hovering the notch shows a compact panel. Standard macOS menus are in place — View (Overview ⌘1 / Token Usage ⌘2 / Refresh ⌘R), Window (⌘M/⌘W), and Help (guide, GitHub, check for updates). There is no refresh button in the toolbar: refreshing is fully automatic (see "How refreshing works").
 
 ## Three-minute start
 
@@ -76,6 +76,18 @@ tokenitor --cli
 
 > Note: Claude / Copilot read Keychain credentials in CLI mode too — the first terminal call may show an "allow Keychain access" prompt; without it only local sources (Codex / Gemini) are printed.
 
+## How refreshing works
+
+Refreshing is **fully automatic** — there is no manual refresh button in the UI:
+
+- **On a timer**: your chosen interval (120s by default, 15s minimum). The timer runs in `.common` mode with a 5s tolerance and App Nap is disabled, so 120s really is 120s while the app sits in the background.
+- **Fresh on open**: opening the main window or the menu-bar popover tops up the data if it's older than 30s (the threshold keeps repeated open/close from firing duplicate requests).
+- **After system wake**: `Timer` never fires while the Mac sleeps, so on wake the app re-aligns the cadence and refreshes immediately — no "still last night's numbers" after an overnight sleep.
+- **Low Power Mode**: the interval is automatically 4× longer; it returns to normal when you plug back in.
+- **To refresh right now**: **⌘R**, "Refresh" in the popover, or right-click the menu-bar icon → "Refresh Now". All three clear any rate-limit backoff and retry everything.
+
+Cloud sources (Claude / Copilot) back off for 10 minutes after 3 consecutive failures or rate limits, showing the previous result with a `Cached` / `Offline` chip; a manual refresh breaks the backoff immediately.
+
 ## Token usage page
 
 The sidebar’s **Token** item (or **⌘2**) opens a separate **Token usage** page: today's token spend per tool, split by model, estimated equivalent cost, and a 7-day trend (persisted to `~/.tokenitor/token-history.json`). Purely local, no network.
@@ -84,11 +96,34 @@ The sidebar’s **Token** item (or **⌘2**) opens a separate **Token usage** pa
 |------|--------|
 | Codex | `~/.codex/sessions/**/*.jsonl` — per-turn `last_token_usage`, split by model |
 | Claude Code | `~/.claude/projects/**/*.jsonl` — `message.usage` per assistant message. **Only the Claude Code terminal** writes tokens locally; the Claude desktop app / web do not. |
+| Gemini | `~/.gemini/tmp/**/chats/*.jsonl` — per-message `tokens` (`input` includes `cached`, so cache is subtracted; `thoughts` is separate from `output` and folded into it) |
+| Grok | `~/.grok/logs/unified.jsonl` — `shell.turn.inference_done` events (`prompt_tokens` includes `cached_prompt_tokens`, so cache is subtracted); model from the CLI's own model catalog |
 | OpenCode | `~/.local/share/opencode/opencode.db` — `tokens` + `cost` from the `message` table (uses OpenCode's own cost, accurate even for models outside the price table) |
 
 > Cost is an estimated "equivalent spend" from the **LiteLLM community price table** (MIT, 2,900+ models, bundled as a snapshot and synced with upstream at release time — never at runtime), not your actual subscription bill; models without pricing show "—".
 
 **The Usage page and Token page are two independent data sources.** The Settings toggles only control the Usage page (quota %); the Token page ignores them and simply scans whatever local token files exist.
+
+## Settings (switched inside the main window)
+
+<p align="center">
+  <img src="docs/SCR-settings.png" width="420" alt="Settings">
+</p>
+
+- **AI services** (Claude / Codex / Gemini / Grok / Copilot): the two that go through community APIs (Claude / Copilot) are **off by default** and each ask for a one-time risk confirmation.
+- **Alerts**: notification toggle, low / critical thresholds (the two can never be inverted — changing one pushes the other), and **Snooze** for 1 / 4 / 8 hours (auto-resumes).
+- **General**: daily-limit estimate (Gemini), refresh interval, launch at login, menu-bar panel, status monitor, debug logs. In **Low Power Mode** the refresh interval is automatically 4× longer.
+- **Quick actions**: send a test notification / open the data folder / authorize Copilot / authorize Claude.
+
+Every row label is icon-free and uniformly sized so the left edge lines up; scope notes (e.g. "thresholds are percentages of remaining quota") live in the group subtitles.
+
+Threshold colors are shared by every surface: 🟢 healthy ／ 🟡 below the low threshold ／ 🔴 below the critical threshold.
+
+## Notch hover panel
+
+Move the pointer to the **notch area** at the top of the screen and a compact translucent panel drops down beneath it, showing each AI's remaining percentage and reset countdown; move away and it hides. **Click anywhere on the panel** to open the full main window. Machines without a notch trigger it by hovering the top center.
+
+Sizing follows the content automatically, and the panel stays horizontally centered under the notch.
 
 ## Branding
 

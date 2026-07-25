@@ -1,0 +1,2 @@
+{"ts": "2026-07-22T08:01:18.163Z", "msg": "billing: fetched credits config", "ctx": {"config": {"creditUsagePercent": 22.0, "currentPeriod": {"type": "USAGE_PERIOD_TYPE_WEEKLY", "start": "2026-07-16T23:16:50.209406+00:00", "end": "2026-07-23T23:16:50.209406+00:00"}}, "subscriptionTier": "X Premium"}}
+{"ts": "2026-07-22T08:01:30.169Z", "msg": "shell.turn.inference_done", "ctx": {"prompt_tokens": 13617, "cached_prompt_tokens": 10880, "completion_tokens": 52, "reasoning_tokens": 31}}

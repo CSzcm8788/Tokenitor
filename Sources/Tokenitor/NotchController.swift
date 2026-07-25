@@ -137,7 +137,7 @@ final class NotchController {
         guard let scr = screen ?? topScreen(), let content = panel.contentView else { return }
         content.layoutSubtreeIfNeeded()
         let fit = content.fittingSize
-        let w = max(280, fit.width)
+        let w = max(340, fit.width)   // 与 NotchCardsView 的 360 宽内容匹配（含外边距）
         let h = max(60, fit.height)
         let menuBarH = max(24, scr.frame.maxY - scr.visibleFrame.maxY)
         let x = scr.frame.midX - w / 2

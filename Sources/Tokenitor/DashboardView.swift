@@ -13,26 +13,14 @@ struct DashboardView: View {
             .navigationTitle("Tokenitor")
         } detail: {
             detail
-                // 工具栏（标题栏）用**玻璃材质**而非不透明底：既遮挡滚动到底下的内容
-                //（修复卡片盖住标题/按钮的错乱），又保留动态玻璃的通透感。
-                .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
-                .toolbarBackground(.visible, for: .windowToolbar)
-                .toolbar {
-                    // 刷新的标准归宿：窗口工具栏右上角（Mail/App Store 同款）；
-                    // 进行中显示原生小菊花——用户第一次能「看到」正在刷新。
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { store.onRefresh() } label: {
-                            if store.isRefreshing {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                            }
-                        }
-                        .help(L("刷新（⌘R）", "Refresh (⌘R)"))
-                        .disabled(store.isRefreshing)
-                    }
-                }
-                .background(VisualEffectView(material: .popover, blending: .behindWindow).ignoresSafeArea())
+                // 工具栏里**不放任何按钮**：刷新是自动的（计时器 + 打开窗口/弹层 + 系统唤醒），
+                // 需要手动时用 ⌘R / 弹层菜单 / 菜单栏右键。孤零零一个圆钮与整体风格不搭。
+                // 也不要给工具栏指定背景材质：1.3.0 曾加 `.toolbarBackground(.ultraThinMaterial)`，
+                // 浅色模式下呈纯白、与内容区割裂成两截（遮挡由标题栏自身材质承担）。
+                // 「动态玻璃」：behindWindow 混合把桌面模糊透进来（配合 AppDelegate 的半透明
+                // 窗口）。ignoresSafeArea 让它铺到标题栏下面，与顶部连成一片、不再有白工具栏。
+                .background(VisualEffectView(material: .popover, blending: .behindWindow)
+                    .ignoresSafeArea())
         }
     }
 
@@ -54,21 +42,24 @@ struct DashboardView: View {
 
     private var sidebarContent: some View {
         List(selection: sidebarSelection) {
-                // 分组式导航（概览 / 通用 / 其他）+ 单色 SF Symbols 图标：
-                // 遵循 macOS 侧边栏惯例（Finder/Mail 风格，图标随系统强调色/选中态自动着色）。
+                // 分组式导航（概览 / 通用 / 其他）+ 统一规格单色 SF Symbols：
+                // 固定列宽/字号，选中态交给 List 系统着色（Finder / Mail 侧栏惯例）。
                 Section(L("概览", "Overview")) {
-                    sidebarItem("Dashboard", "gauge.medium", .usage)
-                    sidebarItem("Token", "chart.bar.xaxis", .tokens)
+                    sidebarItem("Overview", "gauge.medium", .usage)
+                    sidebarItem("Token", "chart.bar", .tokens)
                     // Token 的工具切换收进边栏（Finder 源列表式子项），不再占详情页顶部
                     ForEach(store.tokenStats) { stat in
                         Label {
                             Text(stat.tool)
                         } icon: {
+                            // 与主项同一列宽，圆点在列内居中——文字左边线与主项对齐。
                             Image(systemName: "circlebadge.fill")
                                 .font(.system(size: 6))
-                                .foregroundStyle(.secondary)
+                                .symbolRenderingMode(.monochrome)
+                                .foregroundStyle(.tertiary)
+                                .frame(width: Self.sidebarIconSlot, alignment: .center)
                         }
-                        .padding(.leading, 14)
+                        .padding(.leading, 16)
                         .tag(SidebarSel.tool(stat.tool))
                     }
                 }
@@ -114,10 +105,30 @@ struct DashboardView: View {
             })
     }
 
-    /// 边栏行：单色 SF Symbol + 名称（着色交给系统：强调色 / 选中态自动适配）。
+    /// 侧栏图标槽宽：各 SF Symbol 视觉宽度不等，钉死后文字左边线才齐。
+    private static let sidebarIconSlot: CGFloat = 18
+
+    /// 侧栏图标统一规格（字号 / 字重 / 列宽 / 颜色）。
+    /// **必须显式给颜色**：不给的话，SwiftUI 在「浅色 + 窗口活跃」时会自动给 List 里的 Label
+    /// 图标上系统强调色（实测像素 #0070F6 蓝），而深色/非活跃时又是灰的——同一份界面两种观感，
+    /// 也违背全盘单色化。选中行仍由 List 的选中态整体反白，不受这里影响。
+    @ViewBuilder
+    private func sidebarIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 13, weight: .regular))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(.secondary)
+            .frame(width: Self.sidebarIconSlot, alignment: .center)
+    }
+
+    /// 边栏行：统一 SF Symbol + 名称。
     private func sidebarItem(_ title: String, _ icon: String, _ page: AppPage) -> some View {
-        Label(title, systemImage: icon)
-            .tag(SidebarSel.page(page))
+        Label {
+            Text(title)
+        } icon: {
+            sidebarIcon(icon)
+        }
+        .tag(SidebarSel.page(page))
     }
 
     @ViewBuilder
@@ -187,6 +198,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.4", L("卡片头两行化 · 浅色模式全窗统一 · 设置页 4 字对齐 · 刷新全自动（移除手动按钮）· 应用内检查更新", "Two-row card header · unified light mode · 4-char settings labels · fully automatic refresh · in-app update check")),
         ("1.5.3", L("Grok 接入（第 5 个 AI）· Token 页三新源 · 内存峰值 −78% · Snooze/低电量 · Gemini 翻倍修复", "Grok support (5th AI) · 3 new token sources · −78% peak memory · snooze/low-power · Gemini double-count fix")),
         ("1.5.2", L("加固：声明口径校正 · Copilot 风险确认 · 错误数据不再伪装成正常 · 空状态指引", "Hardening: honest disclaimer · Copilot risk gate · no more fake-healthy data · actionable empty state")),
         ("1.5.1", L("关窗释放视图内存（后台 37MB，重开 46ms 无感）· CLI 补全重置额度/数据时间", "Release view memory on close (37MB resident, 46ms rebuild) · CLI resets/data-age fields")),
@@ -214,9 +226,16 @@ struct AboutDetail: View {
         Form {
             Section(L("更新简要", "What\u{2019}s New")) {
                 ForEach(Self.releaseNotes.prefix(3), id: \.version) { item in
-                    LabeledContent(item.version) {
-                        Text(item.note).foregroundStyle(.secondary)
+                    // 不用 LabeledContent：它把内容靠右排，多行文案会变成右对齐的锯齿块。
+                    // 版本号一行、说明一行，全部左对齐。
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.version)
+                        Text(item.note)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .padding(.vertical, 2)
                 }
             }
             Section {
@@ -225,43 +244,36 @@ struct AboutDetail: View {
                 // 指示性使用（链接到本项目/作者页面），单色随主题着色。
                 HStack(spacing: 12) {
                     Spacer()
-                    socialButton(help: L("GitHub · 项目主页", "GitHub · Project"),
-                                 url: "https://github.com/CSzcm8788/Tokenitor") {
+                    CircleGlyphButton(help: L("GitHub · 项目主页", "GitHub · Project")) {
+                        if let u = URL(string: "https://github.com/CSzcm8788/Tokenitor") {
+                            NSWorkspace.shared.open(u)
+                        }
+                    } icon: {
                         BrandIcon.github.fill(style: FillStyle(eoFill: true))
                             .frame(width: 16, height: 16)
                     }
-                    socialButton(help: L("X · 作者主页", "X · Author"),
-                                 url: "https://x.com/yukabiubiu") {
+                    CircleGlyphButton(help: L("X · 作者主页", "X · Author")) {
+                        if let u = URL(string: "https://x.com/yukabiubiu") {
+                            NSWorkspace.shared.open(u)
+                        }
+                    } icon: {
                         BrandIcon.x.fill(style: FillStyle(eoFill: true))
-                            .frame(width: 14, height: 14)
+                            .frame(width: 14, height: 14)   // X 标形状偏满，视觉上与 16pt 其它图标等重
                     }
-                    socialButton(help: L("Telegram · 联系作者", "Telegram · Contact"),
-                                 url: "https://t.me/yukabiubiu") {
+                    CircleGlyphButton(help: L("Telegram · 联系作者", "Telegram · Contact")) {
+                        if let u = URL(string: "https://t.me/yukabiubiu") {
+                            NSWorkspace.shared.open(u)
+                        }
+                    } icon: {
                         Image(systemName: "paperplane")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 16, height: 16)
                     }
                 }
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-    }
-
-    /// 圆形社交图标按钮（悬停放大 + 手型光标）。
-    private func socialButton<Icon: View>(help: String, url: String,
-                                          @ViewBuilder icon: () -> Icon) -> some View {
-        Button {
-            if let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        } label: {
-            icon()
-                .foregroundStyle(.primary)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(Color.primary.opacity(0.07)))
-                .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
-        .pressableHover(scale: 1.08)
-        .help(help)
     }
 
     private var appVersion: String {
@@ -284,6 +296,9 @@ struct LanguageDetail: View {
                     Text("English").tag("en")
                 } label: { Label(L("界面语言", "Interface Language"), systemImage: "globe") }
                 .pickerStyle(.menu)
+            } header: {
+                sectionTitle(L("语言", "Language"),
+                             L("界面语言；未选择时跟随 macOS 系统语言。", "Interface language; follows the macOS system language unless set."))
             } footer: {
                 Text(L("切换语言需重启应用生效。", "Relaunch the app to apply the language change."))
             }
@@ -291,6 +306,18 @@ struct LanguageDetail: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
     }
+}
+
+/// Form section 的标题 + 说明，与设置页 `sectionHeader` 同款——语言 / 外观页此前裸着没标题，
+/// 与设置页并排看是两种规格。抽到文件级供两页复用。
+@ViewBuilder
+func sectionTitle(_ title: String, _ desc: String) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+        Text(title).font(.sectionTitle).foregroundStyle(.primary)
+        Text(desc).font(.uiCaption).foregroundStyle(.secondary)
+    }
+    .textCase(nil)
+    .padding(.bottom, 2)
 }
 
 /// 「外观」详情：浅色 / 深色 / 跟随系统 —— 可点选的窗口缩略图预览（同「系统设置 → 外观」）。
@@ -307,6 +334,9 @@ struct AppearanceDetail: View {
                     Spacer(minLength: 0)
                 }
                 .padding(.vertical, 6)
+            } header: {
+                sectionTitle(L("外观", "Appearance"),
+                             L("选择浅色 / 深色，或跟随 macOS 系统外观。", "Pick light or dark, or follow the macOS system appearance."))
             } footer: {
                 Text(L("「跟随系统」随 macOS 的日夜外观自动切换。", "\u{201C}Auto\u{201D} follows the macOS system appearance."))
             }

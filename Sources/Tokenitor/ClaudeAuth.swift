@@ -65,7 +65,14 @@ final class ClaudeAuth {
     func accessToken(forceRefresh: Bool = false, completion: @escaping (String?, String?) -> Void) {
         if forceRefresh { invalidateReadCache() }   // 疑似过期：别家条目缓存作废，重读拿最新
         guard let creds = loadCreds() else {
-            completion(nil, L("未找到 Claude 订阅凭证（请用订阅账号 /login 一次）", "No Claude subscription credentials found (run /login once with your subscription account)"))
+            // 区分两种「读不到」：条目根本不存在 vs 存在但钥匙串授权被拒——后者用户能自己解决，
+            // 笼统提示「请 /login」会把人引到错误方向（实测正是这种情况）。
+            if Self.lastKeychainDenied {
+                completion(nil, L("钥匙串未授权：请在弹出的「允许访问钥匙串」窗口点「允许」（建议选「始终允许」），或用 ⌘R 手动刷新以再次弹出",
+                                  "Keychain access not granted: click Allow in the \u{201C}access your keychain\u{201D} prompt (\u{201C}Always Allow\u{201D} recommended), or press ⌘R to trigger it again"))
+            } else {
+                completion(nil, L("未找到 Claude 订阅凭证（请用订阅账号 /login 一次）", "No Claude subscription credentials found (run /login once with your subscription account)"))
+            }
             return
         }
         let nearExpiry = creds.expiresAt.map { $0.timeIntervalSinceNow < 300 } ?? false  // 提前 5 分钟续
@@ -293,6 +300,9 @@ final class ClaudeAuth {
     /// 读取其它应用（Claude Code）的钥匙串条目 —— 用 Security API 而非起 `/usr/bin/security` 子进程：
     /// 授权弹窗的请求方是 Tokenitor 本体，用户点「始终允许」也只放行本应用的签名身份；
     /// 走 `security` 命令行则会把系统二进制加进条目 ACL，此后任何进程都能借它静默读走凭证。
+    /// 最近一次读取钥匙串是否因「未获授权」失败（供 UI 给出可操作提示，而非笼统的「未找到凭证」）。
+    static var lastKeychainDenied = false
+
     private func readKeychain(service: String) -> Data? {
         if let cached = readCache[service] { return cached }   // 命中缓存（含空结果）
         let q: [String: Any] = [
@@ -303,7 +313,16 @@ final class ClaudeAuth {
         ]
         var out: CFTypeRef?
         let result: Data?
-        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+        let st = SecItemCopyMatching(q as CFDictionary, &out)
+        // 条目存在但读取被拒/被取消（-128 errSecUserCanceled、-25308 errSecInteractionNotAllowed）
+        // 是最常见的「Claude 一直不显示」原因：Claude Code 给自己的钥匙串条目只授权了自己，
+        // 本应用读取会弹「允许访问钥匙串」；后台/非前台时系统直接返回取消。记下来供排障，
+        // 并让 UI 给出可操作提示（见 lastKeychainDenied）。
+        if st == errSecUserCanceled || st == errSecInteractionNotAllowed {
+            Self.lastKeychainDenied = true
+            log("钥匙串条目 \(service) 存在但读取未获授权（status=\(st)）——需在弹窗点「允许」")
+        }
+        if st == errSecSuccess,
            let data = out as? Data, !data.isEmpty {
             // 钥匙串里可能是 JSON，也可能是裸 token
             let s = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)

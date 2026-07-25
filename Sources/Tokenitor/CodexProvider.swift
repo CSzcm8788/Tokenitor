@@ -101,7 +101,10 @@ final class CodexProvider: UsageProvider {
         let newOffset = JSONLScanner.scan(url: url, from: from) { line in
             guard line.contains("rate_limits") else { return }
             autoreleasepool {
-                if let hit = Self.parseRateLimitsLine(line) { found = hit }
+                // Codex 偶尔发出 primary/secondary **都为 null** 的 rate_limits 事件（无窗口信息）。
+                // 这种事件不携带用量，绝不能因为「时间最新」就覆盖上一条有效数据——否则卡片会
+                // 整个消失（实测：最新事件为空时，4 小时前 82% 的真实数据被丢弃、Codex 直接隐藏）。
+                if let hit = Self.parseRateLimitsLine(line), Self.hasWindowData(hit.0) { found = hit }
             }
         }
         if let (rl, ts) = found {
@@ -120,6 +123,15 @@ final class CodexProvider: UsageProvider {
         let dict = obj as? [String: Any]
         let ts = (dict?["timestamp"] as? String) ?? (dict?["ts"] as? String)
         return (rl, ts.flatMap(parseISO))
+    }
+
+    /// 该 rate_limits 是否真的带窗口用量（primary/secondary 任一有百分比，或兜底窗口对象里有）。
+    /// internal 供测试：空事件必须判为 false，否则会覆盖上一条好数据。
+    static func hasWindowData(_ rl: [String: Any]) -> Bool {
+        for key in ["primary", "secondary"] {
+            if let d = rl[key] as? [String: Any], JSON.extractPercent(d) != nil { return true }
+        }
+        return JSON.findWindowObjects(rl).contains { JSON.extractPercent($0.1) != nil }
     }
 
     /// 解析 rate_limits.credits（限额重置额度）：返回 (余额>0 时的次数, 是否无限)。

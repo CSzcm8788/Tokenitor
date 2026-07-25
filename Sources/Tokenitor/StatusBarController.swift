@@ -14,6 +14,8 @@ final class StatusBarController: NSObject {
     var onRefreshNow: (() -> Void)?
     var onQuit: (() -> Void)?
     var onShowHelp: (() -> Void)?
+    /// 弹层即将显示：让 AppDelegate 按需补刷（数据偏旧才抓）。
+    var onPopoverWillShow: (() -> Void)?
 
     init(store: UsageStore) {
         self.store = store
@@ -87,6 +89,7 @@ final class StatusBarController: NSObject {
             popover.performClose(nil)
         } else {
             store.page = .usage   // 每次打开默认看用量页
+            onPopoverWillShow?()  // 数据偏旧就补一刷（移除工具栏刷新按钮后的保障）
             // 只弹弹层、只让弹层窗口拿焦点；不激活整个 app —— 避免把主窗口一起带到最前
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)

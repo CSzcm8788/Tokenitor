@@ -68,29 +68,32 @@ struct SettingsPanelView: View {
             Section {
                 Toggle(isOn: bind({ Settings.shared.notificationsEnabled },
                                   { Settings.shared.notificationsEnabled = $0; store.onSettingsChanged() })) {
-                    Label(L("通知告警", "Notifications"), systemImage: "bell")
+                    Text(L("通知告警", "Notifications"))
                 }
-                Picker(L("低用量阈值（剩余）", "Low threshold (remaining)"),
+                Picker(L("低量阈值", "Low threshold"),
                        selection: bind({ Int(Settings.shared.warnAt) },
                                        { Settings.shared.warnAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(warnOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
-                Picker(L("紧急阈值（剩余）", "Critical threshold (remaining)"),
+                Picker(L("紧急阈值", "Critical threshold"),
                        selection: bind({ Int(Settings.shared.critAt) },
                                        { Settings.shared.critAt = Double($0); store.onSettingsChanged() })) {
                     ForEach(critOptions, id: \.self) { Text("\($0)%").tag($0) }
                 }
                 snoozeRow
             } header: {
-                sectionHeader(L("告警", "Alerts"), L("剩余量跌破阈值时发一次系统通知，回升后可再次触发。", "Notifies once when remaining quota drops below a threshold; re-arms after recovery."))
+                sectionHeader(L("告警通知", "Alerts"), L("阈值按剩余百分比计算；跌破时通知一次，回升后可再次触发。", "Thresholds are percentages of remaining quota; notifies once on crossing, re-arms after recovery."))
             }
 
             // 通用
             Section {
-                Picker(L("Gemini 每日额度（估算）", "Gemini daily limit (estimate)"),
-                       selection: bind({ Int(Settings.shared.geminiDailyLimit) },
+                // 方案 B：标签保持 4 字对齐，右侧值自带「Gemini」限定——五个 AI 里只有它有
+                // 这项估算，光写「日额估算」脱离上下文不知道是谁的额度。
+                Picker(selection: bind({ Int(Settings.shared.geminiDailyLimit) },
                                        { Settings.shared.geminiDailyLimit = Double($0); store.onSettingsChanged() })) {
-                    ForEach(geminiLimitOptions, id: \.self) { Text("\($0)").tag($0) }
+                    ForEach(geminiLimitOptions, id: \.self) { Text("Gemini · \($0)").tag($0) }
+                } label: {
+                    Text(L("日额估算", "Daily limit"))
                 }
                 Picker(L("刷新间隔", "Refresh interval"),
                        selection: bind({ Int(Settings.shared.refreshInterval) },
@@ -98,30 +101,30 @@ struct SettingsPanelView: View {
                     ForEach(intervalOptions, id: \.self) { Text("\($0)s").tag($0) }
                 }
                 Toggle(isOn: bind({ LoginItem.enabled }, { LoginItem.set($0) })) {
-                    Label(L("开机自启", "Launch at login"), systemImage: "power")
+                    Text(L("开机自启", "Launch at login"))
                 }
                 Toggle(isOn: bind({ Settings.shared.notchEnabled },
                                   { Settings.shared.notchEnabled = $0; store.onSettingsChanged() })) {
-                    Label(L("刘海面板", "Notch panel"), systemImage: "rectangle.topthird.inset.filled")
+                    Text(L("顶栏面板", "Menu-bar panel"))
                 }
                 Toggle(isOn: bind({ Settings.shared.statusMonitorEnabled },
                                   { Settings.shared.statusMonitorEnabled = $0; store.onSettingsChanged() })) {
-                    Label(L("服务状态监控", "Service status monitor"), systemImage: "waveform.path.ecg")
+                    Text(L("状态监控", "Status monitor"))
                 }
                 Toggle(isOn: bind({ Settings.shared.debugDump }, { Settings.shared.debugDump = $0 })) {
-                    Label(L("调试转储", "Debug dumps"), systemImage: "ladybug")
+                    Text(L("调试日志", "Debug logs"))
                 }
             } header: {
-                sectionHeader(L("通用", "General"), L("刷新频率与常驻行为；各项含义详见「说明」页。", "Refresh cadence and background behavior; see the Guide page for details."))
+                sectionHeader(L("通用设置", "General"), L("控制刷新频率与系统常驻行为。", "Refresh cadence and background behavior."))
             }
 
             // 动作：测试通知/数据文件夹 一行，两个授权 一行（均带悬停反馈）
             Section {
                 HStack(spacing: 10) {
-                    Button(L("测试通知", "Test Notification")) { store.onTestNotify() }
+                    Button(L("发送通知", "Send Notification")) { store.onTestNotify() }
                         .help(L("发一条测试通知，确认系统通知权限正常", "Send a test notification to confirm permission"))
                         .pressableHover()
-                    Button(L("数据文件夹", "Data Folder")) { Self.openDataFolder() }
+                    Button(L("数据目录", "Data Folder")) { Self.openDataFolder() }
                         .help(L("打开 ~/.tokenitor（历史/缓存/日志/调试转储所在目录）", "Open ~/.tokenitor (history / cache / logs / dumps)"))
                         .pressableHover()
                     Spacer()
@@ -138,7 +141,7 @@ struct SettingsPanelView: View {
                 }
                 .buttonStyle(.bordered)
             } header: {
-                sectionHeader(L("动作", "Actions"), L("通知测试、数据目录与账号授权。", "Notification test, data folder, and account authorization."))
+                sectionHeader(L("快捷操作", "Quick Actions"), L("通知测试、目录查看与账号授权。", "Test notifications, open the data folder, authorize accounts."))
             }
 
         }
@@ -154,8 +157,7 @@ struct SettingsPanelView: View {
     private var snoozeRow: some View {
         if Settings.shared.alertsSnoozed {
             HStack {
-                Label(L("已静音至 \(snoozeUntilText)", "Snoozed until \(snoozeUntilText)"),
-                      systemImage: "moon.zzz")
+                Text(L("已静音至 \(snoozeUntilText)", "Snoozed until \(snoozeUntilText)"))
                 Spacer()
                 Button(L("取消静音", "Unsnooze")) {
                     Settings.shared.alertsSnoozedUntil = 0; store.onSettingsChanged()
@@ -163,7 +165,7 @@ struct SettingsPanelView: View {
             }
         } else {
             HStack {
-                Label(L("暂时静音", "Snooze"), systemImage: "moon.zzz")
+                Text(L("暂时静音", "Snooze"))
                 Spacer()
                 ForEach([1, 4, 8], id: \.self) { h in
                     Button(L("\(h)小时", "\(h)h")) {
