@@ -34,15 +34,23 @@ struct DashboardView: View {
         }
     }
 
-    /// 边栏用系统 `.sidebar` 材质，与详情区的 `.popover` 拉开一层明度差——之前两侧都只有窗口
-    /// 那一层 behindWindow 玻璃，实测浅色下 218 vs 217，等于看不出边栏边界。
-    /// 用系统材质而不是自己叠色：明暗两套的方向由系统给（实测浅色边栏偏亮 226/217、深色偏暗
-    /// 71/98），自己叠固定色只能对一套。曾试 `Color.black.opacity(0.055)`，材质会把它抹掉，
-    /// 只剩 3 级差、白改。
-    /// 只加在边栏这一侧：详情区的 `VisualEffectView(.popover, .behindWindow)` 是动态玻璃的
-    /// 内容层，一个字都不要动（见 CLAUDE.md §2）。
+    /// 边栏用**和详情区同一种** `.popover` 玻璃，再压一层极淡的黑做暗——「暗边栏 + 亮内容」
+    /// 才是系统的方向（实测系统设置浅色：边栏 241 / 内容 247，边栏暗 6 级）。
+    /// 此前两侧都只有窗口那一层玻璃，浅色实测 218 vs 217，等于看不出边栏边界。
+    ///
+    /// 为什么不用系统的 `.sidebar` / `.underWindowBackground` / `.windowBackground`：这三个在
+    /// 浅色下都把边栏做得**更亮**（实测 226/217、224/210、255/216），方向和系统相反——根因是
+    /// 我们的内容区是 `.popover` 玻璃（216），比普通窗口底色暗得多，而那层是动态玻璃的地基，
+    /// 不能为了配色去动它（见 CLAUDE.md §2）。所以只能反过来压暗边栏。
+    ///
+    /// 0.04 这个值是量出来的：0.11 → 浅色差 18 级（过重），0.04 → 浅色 −9 / 深色 −4，
+    /// 与系统的 −6 同量级且两种外观方向一致。改这个数字必须重新量，不要凭感觉调。
     private var sidebarTint: some View {
-        VisualEffectView(material: .sidebar, blending: .behindWindow).ignoresSafeArea()
+        ZStack {
+            VisualEffectView(material: .popover, blending: .behindWindow)
+            Color.black.opacity(0.04)
+        }
+        .ignoresSafeArea()
     }
 
     /// 边栏选中项：普通页面，或 Token 下的某个工具子项。
