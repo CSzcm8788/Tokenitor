@@ -1,17 +1,10 @@
-import AppKit
 import SwiftUI
 
-/// 「说明」页（侧边栏详情 + 独立窗口共用）：分区卡片，端点/路径以等宽 code 片段高亮，
-/// 状态用胶囊标签（本地 / 社区接口 / 默认关）。这里是 app 内各项说明的**唯一出处**——
+/// 「说明」页：分区卡片，端点/路径以等宽 code 片段高亮，状态用胶囊标签
+///（本地 / 社区接口 / 默认关）。这里是 app 内各项说明的**唯一出处**——
 /// 卡片正常状态不再挂描述文字，全部汇总到这里；改口径只改这里。
-final class HelpViewController: NSViewController {
-    override func loadView() {
-        let host = NSHostingView(rootView: HelpView())
-        host.frame = NSRect(x: 0, y: 0, width: 560, height: 700)
-        view = host
-    }
-}
-
+/// 只在主窗口详情区渲染（1.5.6 起所有「使用说明」入口都收敛到那里，
+/// 原先包一层 NSViewController 开独立窗口的用法已删）。
 struct HelpView: View {
     var body: some View {
         ScrollView {
@@ -23,7 +16,7 @@ struct HelpView: View {
                     bullet(L("**1 · 零配置起步**：Codex / Gemini / Grok 的用量来自本机文件，安装后自动显示；未使用的 AI 不会出现。", "**1 · Zero-config start**: Codex / Gemini / Grok usage comes from local files and appears automatically after install; tools you don\u{2019}t use never show up."))
                     bullet(L("**2 · 启用 Claude / Copilot（可选）**：二者经由社区通用接口（官方未文档化）读取，默认关闭；在「设置」中打开开关并完成一次授权即可显示。", "**2 · Enable Claude / Copilot (optional)**: both read via community APIs (not officially documented) and are off by default; turn on the toggle in Settings and authorize once."))
                     bullet(L("**3 · 读懂卡片**：进度条表示剩余配额，5 小时窗口带 20% / 50% 两道刻度；绿 / 黄 / 红 对应 充足 / 偏低 / 紧急；`LIVE` / `缓存` / `离线` 表示数据新鲜度；↻ 后为重置倒计时。", "**3 · Reading a card**: bars show remaining quota — the 5-hour window carries tick marks at 20% and 50%; green / amber / red mean healthy / low / critical; `LIVE` / `Cached` / `Offline` indicate data freshness; ↻ precedes the reset countdown."))
-                    note(L("左键菜单栏图标即可速览；点刘海面板任意位置打开完整主窗口。关闭主窗口不会退出应用（后台继续监测），退出请用 ⌘Q。", "Left-click the menu-bar icon for a glance; click anywhere on the notch panel to open the full window. Closing the main window doesn\u{2019}t quit the app (monitoring continues in the background) — quit with ⌘Q."))
+                    note(L("左键菜单栏图标即可速览；点刘海面板任意位置打开完整主窗口；弹层或右键菜单里的「使用说明」也在主窗口打开本页。关闭主窗口不会退出应用（后台继续监测），退出请用 ⌘Q。", "Left-click the menu-bar icon for a glance; click anywhere on the notch panel to open the full window; \u{201C}Guide\u{201D} in the popover or right-click menu opens this page in the main window too. Closing the main window doesn\u{2019}t quit the app (monitoring continues in the background) — quit with ⌘Q."))
                     note(L("**刷新是自动的**：按设置的间隔定时刷（默认 120s），打开主窗口或菜单栏弹层时若数据偏旧会补刷一次，系统唤醒后也会立即补刷。需要立刻刷新时用 ⌘R、弹层里的「刷新」，或右键菜单栏图标选「立即刷新」。", "**Refreshing is automatic**: on your chosen interval (120s by default), plus a top-up when you open the main window or the menu-bar popover with stale data, and immediately after the system wakes. To refresh right now: ⌘R, \u{201C}Refresh\u{201D} in the popover, or right-click the menu-bar icon."))
                 }
 

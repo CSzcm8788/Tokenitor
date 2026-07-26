@@ -133,22 +133,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showWindow()
     }
 
-    private var helpWindow: NSWindow?
-    @objc private func showHelp() {
-        if helpWindow == nil {
-            let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 580, height: 640),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered, defer: false)
-            w.title = L("Tokenitor · 使用说明", "Tokenitor · Guide")
-            w.contentViewController = HelpViewController()
-            w.center()
-            w.isReleasedWhenClosed = false
-            helpWindow = w
-        }
-        helpWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
+    /// 使用说明一律落在**主窗口的「说明」页**（弹层 / 菜单栏右键 / 帮助菜单 ⌘? 都走这里）。
+    /// 1.5.6 前这里另开一扇独立 NSWindow 装同一份 HelpView：同一个功能两种落点，而且那扇窗
+    /// 没走 setupWindow()（没有 isOpaque=false / .clear / fullSizeContentView），是普通不透明窗，
+    /// 没有动态玻璃、和主窗口观感不一致。与「刘海点击直达主窗口」同一思路，收敛到主窗口。
+    @objc private func showHelp() { store.page = .help; showWindow() }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         log("applicationDidFinishLaunching")
