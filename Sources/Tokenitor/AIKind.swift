@@ -33,12 +33,9 @@ enum AIKind: String, CaseIterable, Identifiable {
     ///（官方未文档化；条款风险在说明页合规卡与开启前弹窗中完整披露）。
     var sourceTag: String {
         switch self {
-        // Claude 装了本地桥（statusline）后就是纯本地读取，胶囊随之变「本地」；
-        // 没装才回落到社区接口。见 ClaudeStatusline / ClaudeProvider 的降级链。
-        case .claude:
-            if case .installed = ClaudeStatusline.state() { return L("本地", "Local") }
-            return L("社区", "Community")
-        case .copilot:                return L("社区", "Community")
+        // Claude 的实际来源逐次变化（本地桥 / 桌面历史 / 社区端点），由 ProviderSnapshot.sourceTag
+        // 自报；这里只给读不到快照时的兜底口径。
+        case .claude, .copilot:       return L("社区", "Community")
         case .codex, .gemini, .grok:  return L("本地", "Local")
         }
     }
@@ -49,8 +46,8 @@ enum AIKind: String, CaseIterable, Identifiable {
     var coverage: String {
         switch self {
         case .claude:
-            return L("覆盖范围：**整个 Anthropic 账号**——桌面 App、网页版与 Claude Code 的消耗合并计入；5 小时窗口与周窗口（含 Sonnet / Opus 各自的窗口）。",
-                     "Coverage: **your whole Anthropic account** — desktop app, web, and Claude Code usage all count toward it; 5-hour and weekly windows (with separate Sonnet / Opus windows).")
+            return L("覆盖范围：**整个 Anthropic 账号**——桌面 App、网页版与 Claude Code 的消耗合并计入。列出的窗口取决于本次取数路径：5 小时窗口与周窗口总有；Opus 周窗、额外额度只在该源给出时才显示。",
+                     "Coverage: **your whole Anthropic account** — desktop app, web, and Claude Code usage all count toward it. Which windows are listed depends on the path this reading came from: 5-hour and weekly are always there; the Opus weekly and extra-usage windows appear only when that source reports them.")
         case .codex:
             return L("覆盖范围：**整个 ChatGPT 账号**的 Codex 配额窗口（本机会话文件里记录的账号级 rate_limits，非仅本机用量）。",
                      "Coverage: the Codex quota windows of **your whole ChatGPT account** (account-level rate_limits recorded in local session files, not just this Mac).")

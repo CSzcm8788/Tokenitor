@@ -206,3 +206,69 @@ final class ClaudeStatuslineTests: XCTestCase {
         XCTAssertEqual(ws[1].usedPercent, 0)
     }
 }
+
+/// Claude 桌面 App 的本地用量历史（`plan-usage-history.json`）。
+/// 字段是缩写（`u.fh`/`u.sd`/`u.xu`）且**没有** resets_at——这两点决定了解析口径：
+/// 缩写要映射成人能看懂的窗口名，重置时间要留空而不是编一个。
+final class ClaudeDesktopUsageTests: XCTestCase {
+
+    private func payload() throws -> Any {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "Fixtures/claude-plan-usage-history.json",
+                                                 withExtension: nil))
+        return try JSONSerialization.jsonObject(with: try Data(contentsOf: url))
+    }
+
+    /// 取**最新**样本（不是第一个），映射缩写，且不带重置时间。
+    func testParsesLatestSample() throws {
+        let r = try XCTUnwrap(ClaudeDesktopUsage.parseLatest(try payload()))
+        XCTAssertFalse(r.windows.isEmpty)
+        XCTAssertEqual(r.windows[0].label, "5h", "fh 映射为 5h 且排在最前")
+        XCTAssertTrue(r.windows.contains { $0.label == "weekly" }, "sd 映射为 weekly")
+        for w in r.windows {
+            XCTAssertNil(w.resetsAt, "该源没有 resets_at，不能臆造重置时间")
+        }
+        // 采样时间必须是毫秒转秒后的合理时刻（不能落到 1970 或公元 57000 年）
+        XCTAssertGreaterThan(r.asOf, Date(timeIntervalSince1970: 1_700_000_000))
+        XCTAssertLessThan(r.asOf, Date(timeIntervalSince1970: 2_000_000_000))
+    }
+
+    /// 值是「已用 %」：fh=100 意味着 5 小时窗口**剩 0%**，不能反过来。
+    func testUsedPercentSemantics() throws {
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(
+            #"{"version":2,"samples":[{"t":1785000000000,"u":{"fh":100,"sd":27}}]}"#.utf8)))
+        let r = try XCTUnwrap(ClaudeDesktopUsage.parseLatest(obj))
+        XCTAssertEqual(r.windows[0].remainingPercent, 0)
+        XCTAssertEqual(r.windows[1].remainingPercent, 73)
+    }
+
+    /// extra_usage（xu）只在有额外额度时出现——出现就显示，不出现不能凭空造。
+    func testExtraUsageOptional() throws {
+        let withXu = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(
+            #"{"samples":[{"t":1785000000000,"u":{"fh":10,"sd":20,"xu":94.91}}]}"#.utf8)))
+        XCTAssertTrue(try XCTUnwrap(ClaudeDesktopUsage.parseLatest(withXu)).windows
+            .contains { $0.label == "extra_usage" })
+        let without = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(
+            #"{"samples":[{"t":1785000000000,"u":{"fh":10,"sd":20}}]}"#.utf8)))
+        XCTAssertFalse(try XCTUnwrap(ClaudeDesktopUsage.parseLatest(without)).windows
+            .contains { $0.label == "extra_usage" })
+    }
+
+    /// 未知缩写（如 cw / oa）语义不明 → 跳过，不显示看不懂的窗口。
+    func testUnknownAbbreviationsSkipped() throws {
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(
+            #"{"samples":[{"t":1785000000000,"u":{"fh":10,"cw":50,"oa":60}}]}"#.utf8)))
+        let r = try XCTUnwrap(ClaudeDesktopUsage.parseLatest(obj))
+        XCTAssertEqual(r.windows.count, 1, "只认识 fh，其余跳过")
+    }
+
+    /// 空 samples / 无 u / 结构不符 → nil，交由 provider 继续降级。
+    func testEmptyOrMalformedYieldsNil() throws {
+        for raw in [#"{"version":2,"samples":[]}"#,
+                    #"{"samples":[{"t":1785000000000}]}"#,
+                    #"{"samples":[{"u":{"fh":10}}]}"#,
+                    #"{"foo":"bar"}"#] {
+            let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(raw.utf8)))
+            XCTAssertNil(ClaudeDesktopUsage.parseLatest(obj), "不该硬凑出数据：\(raw)")
+        }
+    }
+}

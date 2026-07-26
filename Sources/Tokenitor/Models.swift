@@ -36,6 +36,10 @@ struct ProviderSnapshot {
     /// 数据自身的时间点（如 Codex rate_limits 事件的时间戳）。与「更新于」（读取时间）区分：
     /// 滞后明显时卡片显示「数据 X分钟前」胶囊，不让刚刷新的读取时间制造假新鲜感。
     var dataAsOf: Date? = nil
+    /// 本次数据**实际**来自哪一级（如 Claude 的本地桥 / 桌面历史 / 社区端点）。
+    /// 来源胶囊优先用它——此前按「配置是否存在」推断，会出现「配了 statusline 但它没产数据、
+    /// 实际走的是端点，胶囊却写着本地」的谎报。nil 时回落到 AIKind.sourceTag 的静态口径。
+    var sourceTag: String? = nil
     /// 限额重置额度剩余次数（Codex rate_limits.credits.balance）。到期明细本地无、不显示；
     /// 余额为 0 或读不到时为 nil（胶囊隐藏）。unlimited 时显示 ∞。
     var resetCredits: Int? = nil

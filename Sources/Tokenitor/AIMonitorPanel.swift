@@ -11,8 +11,9 @@ struct ProviderChipsRow: View {
     var body: some View {
         HStack(spacing: compact ? 4 : 6) {
             statusChip
-            if let kind = AIKind.from(name: snap.name) {
-                Self.chip(kind.sourceTag, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
+            // 优先用快照自报的实际来源；没有才用该 AI 的静态口径
+            if let tag = snap.sourceTag ?? AIKind.from(name: snap.name)?.sourceTag {
+                Self.chip(tag, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)
             }
             if let plan = snap.plan, !plan.isEmpty {
                 Self.chip(plan, fg: .secondary, bg: Color.primary.opacity(0.06), compact: compact)

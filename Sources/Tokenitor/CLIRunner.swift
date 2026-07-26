@@ -76,6 +76,7 @@ enum CLIRunner {
                 },
             ]
             if let plan = s.plan, !plan.isEmpty { d["plan"] = plan }
+            if let src = s.sourceTag { d["source"] = src }
             if s.resetCreditsUnlimited { d["reset_credits_unlimited"] = true }
             if let n = s.resetCredits { d["reset_credits"] = n }
             if let t = s.dataAsOf { d["data_as_of"] = iso.string(from: t) }

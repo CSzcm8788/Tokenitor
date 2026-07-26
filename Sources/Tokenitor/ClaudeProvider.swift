@@ -52,7 +52,22 @@ final class ClaudeProvider: UsageProvider {
             lastOK = local.asOf
             saveCache(local.windows)
             completion(ProviderSnapshot(name: displayName, windows: local.windows, ok: true, error: nil,
-                                        plan: auth.currentPlan, dataAsOf: local.asOf))
+                                        plan: auth.currentPlan, dataAsOf: local.asOf,
+                                        sourceTag: L("本地", "Local")))
+            return
+        }
+
+        // ①b 桌面 App 的本地用量历史：桌面 App 自己每约 5 分钟拉一次账号用量并追加采样，
+        // 我们只读文件。对**只用桌面 App**的人这是唯一的本地权威源（statusline 只在终端产生）。
+        // 该源没有 resets_at，所以窗口不带重置倒计时——不臆造。
+        if let desk = ClaudeDesktopUsage.read(),
+           Date().timeIntervalSince(desk.asOf) <= Self.localMaxAge {
+            lastWindows = desk.windows
+            lastOK = desk.asOf
+            saveCache(desk.windows)
+            completion(ProviderSnapshot(name: displayName, windows: desk.windows, ok: true, error: nil,
+                                        plan: auth.currentPlan, dataAsOf: desk.asOf,
+                                        sourceTag: L("本地", "Local")))
             return
         }
 
@@ -95,7 +110,8 @@ final class ClaudeProvider: UsageProvider {
             // 卡片保持干净：不再挂"订阅共享用量 · Mac App / 网页 / Claude Code"描述文字
             //（该说明已在侧边栏「说明」页 → 各 AI 如何接入 → Claude 里）。失效/降级时的 note 仍保留。
             completion(ProviderSnapshot(name: displayName, windows: windows, ok: true,
-                                        error: nil, note: nil, plan: auth.currentPlan))
+                                        error: nil, note: nil, plan: auth.currentPlan,
+                                        sourceTag: L("社区", "Community")))
         case .unauthorized:
             if refreshed {
                 completion(failOrCached(L("订阅 token 已失效，请重新用订阅账号 /login",
@@ -144,7 +160,8 @@ final class ClaudeProvider: UsageProvider {
         }
         return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
                                 error: nil, note: "（\(msg)）显示上次数据 \(timeStr())",
-                                isStale: true, dataAsOf: lastOK)
+                                isStale: true, dataAsOf: lastOK,
+                                sourceTag: L("缓存", "Cache"))
     }
 
     /// 端点这条路走不通时给的可操作建议：装本地桥（零联网、零 429）。
@@ -163,7 +180,8 @@ final class ClaudeProvider: UsageProvider {
         }
         return ProviderSnapshot(name: displayName, windows: lastWindows, ok: true,
                                 error: nil, note: "\(reason)，显示上次数据 \(timeStr())",
-                                isStale: true, dataAsOf: lastOK)
+                                isStale: true, dataAsOf: lastOK,
+                                sourceTag: L("缓存", "Cache"))
     }
 
     /// 手动刷新（⌘R / 刷新按钮）时清掉自身的 429 冷却，让「手动刷新」名副其实。

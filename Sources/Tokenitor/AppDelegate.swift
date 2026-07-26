@@ -304,7 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             a.informativeText = L("""
             Claude Code 会把每轮的用量（5 小时 / 7 天窗口）交给本地文件，Tokenitor 只读它——不联网、不再撞该端点的限流。
 
-            ⚠️ 仅对**终端里运行的** Claude Code 有效：状态栏是终端 TUI 的组件，Claude 桌面 App 不渲染它，因此桌面 App 的会话不会产生这份数据（此时会自动回落到社区接口，最短 600 秒一次）。
+            ⚠️ 仅对**终端里运行的** Claude Code 有效：状态栏是终端 TUI 的组件，Claude 桌面 App 不渲染它，因此桌面 App 的会话不会产生这份数据。只用桌面 App 时不必装它——Tokenitor 会读桌面 App 自己写的用量历史（约 5 分钟一次采样，无重置时间）。
 
             请**重启 Claude Code** 使配置生效，之后在终端里发一次请求，卡片就会显示本地数据。原配置已备份为 settings.json.tokenitor-backup。
             """, """

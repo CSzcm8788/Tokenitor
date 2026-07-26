@@ -35,7 +35,7 @@
 
 | 工具 | 来源 | 说明 |
 |------|------|------|
-| Claude | `~/.tokenitor/claude-statusline.json`（首选）· `api.anthropic.com/api/oauth/usage`（回落） | **首选本地读取**：Claude Code 每轮把 `rate_limits`（5 小时 / 7 天窗口，含 `used_percentage` / `resets_at`）交给 statusline 脚本，脚本落盘、本应用只读——**零联网、零限流、不弹钥匙串**，也不涉及条款风险。在「设置 → 快捷操作 → 启用本地读取」一键配置（会备份你的 `~/.claude/settings.json`，需重启 Claude Code 生效）。**⚠️ 仅终端版 Claude Code 有效**：状态栏是终端 TUI 的组件，Claude 桌面 App 不渲染它，因此桌面 App 的会话不会产生这份数据——此时自动回落到下面的社区接口。未启用时回落到社区接口：token 只读 `~/.claude/.credentials.json` 或钥匙串（**不代它续期**）、诚实 UA；该端点被 Anthropic 判为 `not planned` 且限流极猛（社区共识轮询间隔 300–900s），故最短 **600s** 才调一次。再失败则显示 24 小时内的缓存（`缓存` 胶囊），超期如实报错。**⚠️ 高级·默认关闭**。 |
+| Claude | `~/.tokenitor/claude-statusline.json`（Code 本地）· `~/Library/Application Support/Claude/plan-usage-history.json`（桌面 App 本地）· `api.anthropic.com/api/oauth/usage`（回落） | **本地优先，两条本地源覆盖两种用法**：① 终端 Claude Code —— 每轮把 `rate_limits`（5 小时 / 7 天窗口，含 `resets_at`）交给 statusline 脚本，脚本落盘、本应用只读；② **Claude 桌面 App** —— 桌面 App 自己每约 5 分钟拉一次账号用量并把采样追加到 `plan-usage-history.json`（字段为缩写 `fh`/`sd`/`xu`，即 five_hour / seven_day / extra_usage，值为已用 %；**该源没有重置时间，故不显示倒计时**——不臆造）。两者都是**零联网、零限流、不弹钥匙串**的纯本地读取。都读不到时才回落社区接口：token 只读（**不代它续期**）、诚实 UA；该端点被 Anthropic 判为 `not planned` 且限流极猛（社区共识轮询间隔 300–900s），故最短 **600s** 才调一次。再失败则显示 24 小时内的缓存（`缓存` 胶囊），超期如实报错。来源胶囊按**本次实际取数路径**显示（本地 / 社区 / 缓存），不按配置猜。**⚠️ 高级·默认关闭**。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数做**本地估算**（仅本机 CLI），本地 0 点重置。官方每日额度按账号类型浮动（约 250–2000）且本地读不到，故分母**可在设置里调整**（默认 1000），界面标注为估算。**注**：2026-06 起 Google 已把个人账号从旧版 Gemini CLI 迁移到 Antigravity CLI（`agy`），其用量不写入 `~/.gemini`；本项仅在检测到近 36h 有本地活动时显示，否则自动隐藏。 |
 | Grok | `~/.grok/logs/unified.jsonl` | 读 Grok Build（grok CLI）自己定期拉取并**落盘到本地日志**的 billing 事件：周共享池已用 %、精确重置时间、订阅档位（如 X Premium）。**完全本地读取、零联网**。注意口径：xAI 付费档为全产品（Chat/Imagine/Build/API）共享周池，此百分比即整体用量。 |
@@ -303,13 +303,25 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
 
 ## 更新日志
 
+### 1.5.6
+
+**更正 1.5.5 的一处错误断言，并接入桌面 App 的本地用量源。**
+
+- **更正**：1.5.5 的说明与 Release 里写了「Claude 桌面 App 的 `~/Library/Application Support/Claude/` 下没有任何可读的用量缓存」。**这是错的。** 该目录下有 `plan-usage-history.json`，桌面 App 自己每约 5 分钟拉一次账号用量并追加采样（本机实测 594 个样本、跨 8 天）。当初排查时搜的是 `utilization`/`five_hour` 等全称，而该文件用的是**缩写键** `fh`/`sd`/`xu`，搜索词匹配不到——是排查方法的失误，不是文件不存在。
+- **接入桌面 App 本地源**：降级链在 statusline 之后、社区端点之前插入 `plan-usage-history.json`。映射 `fh → 5h`、`sd → weekly`、`so → weekly_opus`、`xu → extra_usage`（值为已用 %）；采样时间作为「数据 X前」。该源**没有 `resets_at`**，因此这些窗口不显示重置倒计时——按项目原则不臆造。语义不明的缩写（如 `cw`/`oa`）一律跳过，不显示看不懂的窗口。
+  - 交叉验证：history 里 `xu = 94.91000000000001` 与此前来自真实端点调用的 `extra_usage = 94.910000000000011` 完全一致，证明映射正确。
+  - **对只用桌面 App 的用户，Claude 现在也是纯本地读取**（零联网、零 429、不弹钥匙串）。
+- **修正来源胶囊的谎报**：此前只要 `statusLine` **配置存在**就显示「本地」，即使它没产数据、实际走的是端点。现在快照自报本次实际取数路径，胶囊按真实来源显示 `本地` / `社区` / `缓存`。
+- CLI 的 `--json` 增加 `source` 字段，脚本可据此判断数据来自本地还是端点。
+- 新增 5 个解析测试（最新样本而非首个、已用 % 语义、extra_usage 可选、未知缩写跳过、空/畸形结构不硬凑）+ 脱敏 fixture，共 102 个。
+
 ### 1.5.5
 
 Claude 用量改为**本地读取**（解决「一直没数据」）。
 
 - **根因**：`api/oauth/usage` 从未被官方支持——社区就其「持续 429、`retry-after: 0` 仍然 429」提的多个 issue 全被 Anthropic 关成 `not planned`，共识的轮询间隔已被拉到 300–900s。我们此前按全局 120s 打它，必然被限流。
 - **新数据源（首选）**：Claude Code 每轮会把 `rate_limits`（5 小时 / 7 天窗口，含 `used_percentage` / `resets_at`）交给 **statusline 脚本的 stdin**（官方 changelog 明载）。打包的 `claude-statusline.sh` 把它落到 `~/.tokenitor/claude-statusline.json`，本应用只读该文件——**零联网、零 429、不弹钥匙串、无条款风险**，与 Codex / Grok 的本地读取架构一致。启用后 Claude 的来源胶囊也从 `社区` 变为 `本地`。
-- **适用范围（重要）**：statusline 是**终端 TUI** 的渲染组件，**Claude 桌面 App 不渲染状态栏**，因此桌面 App 的会话不会产生这份数据（实测：桌面 App 的 `~/Library/Application Support/Claude/` 下也没有任何可读的用量缓存）。只用桌面 App 时，Claude 会走下面的端点路径——但即便如此，**600s 节流本身就已解决此前 120s 必然限流的问题**。
+- **适用范围**：statusline 是**终端 TUI** 的渲染组件，Claude 桌面 App 不渲染状态栏，因此桌面 App 的会话不产生这份数据。（1.5.5 曾据此错误断言「桌面 App 没有任何可读的用量缓存」——**该说法不成立**，见 1.5.6 的更正。）
 - **一键启用**：设置 → 快捷操作 → 「启用本地读取」。会先备份 `~/.claude/settings.json`；若你已配置了别的 `statusLine`，**不会覆盖**，而是提示你在自己的脚本里加一行（statusLine 在 Claude Code 里是独占项）。装完需重启 Claude Code。脚本本身也会正常打印状态栏（模型名 + 两个窗口剩余量），不会让你的状态栏变空。
 - **四级降级链**，避免任何单点失效导致「一直没数据」：① 本地桥（≤24h）→ ② 社区端点（最短 600s 一次）→ ③ 磁盘缓存（≤24h，`缓存` 胶囊）→ ④ 如实报错，且报错文案直接给出「去启用本地读取」的可操作建议。
 - 新增 5 个解析测试（宽容匹配 snake/camel 键名、秒/毫秒/ISO 时间戳、缺字段不猜、百分比夹紧），共 97 个。

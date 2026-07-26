@@ -198,6 +198,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
+        ("1.5.6", L("Claude 桌面 App 也走本地：读桌面自写的用量历史 · 来源胶囊按实际路径 · 更正 1.5.5 的错误说法", "Claude desktop app now local too: reads the history it writes itself · source chip reflects the real path · corrects a false claim in 1.5.5")),
         ("1.5.5", L("Claude 改本地读取（零联网、不再撞限流）· 四级降级链", "Claude now reads locally (no network, no rate limits) · four-tier fallback")),
         ("1.5.4", L("卡片头两行化 · 浅色模式全窗统一 · 设置页 4 字对齐 · 刷新全自动（移除手动按钮）· 应用内检查更新", "Two-row card header · unified light mode · 4-char settings labels · fully automatic refresh · in-app update check")),
         ("1.5.3", L("Grok 接入（第 5 个 AI）· Token 页三新源 · 内存峰值 −78% · Snooze/低电量 · Gemini 翻倍修复", "Grok support (5th AI) · 3 new token sources · −78% peak memory · snooze/low-power · Gemini double-count fix")),
