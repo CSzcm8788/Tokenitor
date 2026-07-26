@@ -41,7 +41,8 @@ final class ClaudeProvider: UsageProvider {
     private static let localMaxAge: TimeInterval = 24 * 3600
 
     /// fetch 主体，只在 stateQueue 上运行。降级链：
-    /// ① 本地 statusline（零联网、零 429）→ ② oauth 端点（≥600s 一次）→ ③ 磁盘缓存(≤24h) → ④ 如实报错
+    /// ① 本地 statusline（零联网、零 429）→ ①b 桌面 App 用量历史（同样纯本地）
+    /// → ② oauth 端点（≥600s 一次）→ ③ 磁盘缓存(≤24h) → ④ 如实报错
     private func fetchOnQueue(completion: @escaping (ProviderSnapshot) -> Void) {
         ensureCacheLoaded()   // 启动后第一次从磁盘载入上次数据
 
@@ -59,13 +60,14 @@ final class ClaudeProvider: UsageProvider {
 
         // ①b 桌面 App 的本地用量历史：桌面 App 自己每约 5 分钟拉一次账号用量并追加采样，
         // 我们只读文件。对**只用桌面 App**的人这是唯一的本地权威源（statusline 只在终端产生）。
-        // 该源没有 resets_at，所以窗口不带重置倒计时——不臆造。
+        // 该源没有 resets_at，重置时间只能沿用缓存里仍在未来的那个（见 carryForwardResets）。
         if let desk = ClaudeDesktopUsage.read(),
            Date().timeIntervalSince(desk.asOf) <= Self.localMaxAge {
-            lastWindows = desk.windows
+            let windows = carryForwardResets(desk.windows)
+            lastWindows = windows
             lastOK = desk.asOf
-            saveCache(desk.windows)
-            completion(ProviderSnapshot(name: displayName, windows: desk.windows, ok: true, error: nil,
+            saveCache(windows)
+            completion(ProviderSnapshot(name: displayName, windows: windows, ok: true, error: nil,
                                         plan: auth.currentPlan, dataAsOf: desk.asOf,
                                         sourceTag: L("本地", "Local")))
             return
@@ -212,6 +214,29 @@ final class ClaudeProvider: UsageProvider {
         if let savedMs = JSON.double(obj["savedAtMs"]) {
             lastOK = Date(timeIntervalSince1970: savedMs / 1000)
         }
+    }
+
+    /// 给没有重置时间的窗口补上缓存里**同名窗口仍在未来**的那个重置时间。
+    ///
+    /// 桌面 App 的用量历史只有百分比，没有 `resets_at`。但重置时间一旦这个窗口开始就是定值，
+    /// 所以「上次从 statusline / 端点读到、且此刻仍在未来」的时间点必然还是这个窗口的真值——
+    /// 窗口若已翻滚，那个时间点必然已成过去，会被这里筛掉、于是不显示倒计时。
+    /// 即：**要么给真值，要么不给**，绝不外推、绝不臆造一个新的重置时间。
+    static func carryForwardResets(_ windows: [UsageWindow],
+                                   from cached: [UsageWindow], now: Date = Date()) -> [UsageWindow] {
+        windows.map { w in
+            guard w.resetsAt == nil,
+                  let prev = cached.first(where: { $0.label == w.label })?.resetsAt,
+                  prev > now else { return w }
+            var out = w
+            out.resetsAt = prev
+            return out
+        }
+    }
+
+    /// 实例侧便捷入口：拿当前缓存（内存里就是磁盘缓存载入后的那份）当来源。
+    private func carryForwardResets(_ windows: [UsageWindow]) -> [UsageWindow] {
+        Self.carryForwardResets(windows, from: lastWindows)
     }
 
     private func saveCache(_ windows: [UsageWindow]) {

@@ -35,7 +35,7 @@
 
 | 工具 | 来源 | 说明 |
 |------|------|------|
-| Claude | `~/.tokenitor/claude-statusline.json`（Code 本地）· `~/Library/Application Support/Claude/plan-usage-history.json`（桌面 App 本地）· `api.anthropic.com/api/oauth/usage`（回落） | **本地优先，两条本地源覆盖两种用法**：① 终端 Claude Code —— 每轮把 `rate_limits`（5 小时 / 7 天窗口，含 `resets_at`）交给 statusline 脚本，脚本落盘、本应用只读；② **Claude 桌面 App** —— 桌面 App 自己每约 5 分钟拉一次账号用量并把采样追加到 `plan-usage-history.json`（字段为缩写 `fh`/`sd`/`xu`，即 five_hour / seven_day / extra_usage，值为已用 %；**该源没有重置时间，故不显示倒计时**——不臆造）。两者都是**零联网、零限流、不弹钥匙串**的纯本地读取。都读不到时才回落社区接口：token 只读（**不代它续期**）、诚实 UA；该端点被 Anthropic 判为 `not planned` 且限流极猛（社区共识轮询间隔 300–900s），故最短 **600s** 才调一次。再失败则显示 24 小时内的缓存（`缓存` 胶囊），超期如实报错。来源胶囊按**本次实际取数路径**显示（本地 / 社区 / 缓存），不按配置猜。**⚠️ 高级·默认关闭**。 |
+| Claude | `~/.tokenitor/claude-statusline.json`（Code 本地）· `~/Library/Application Support/Claude/plan-usage-history.json`（桌面 App 本地）· `api.anthropic.com/api/oauth/usage`（回落） | **本地优先，两条本地源覆盖两种用法**：① 终端 Claude Code —— 每轮把 `rate_limits`（5 小时 / 7 天窗口，含 `resets_at`）交给 statusline 脚本，脚本落盘、本应用只读；② **Claude 桌面 App** —— 桌面 App 自己每约 5 分钟拉一次账号用量并把采样追加到 `plan-usage-history.json`（字段为缩写 `fh`/`sd`/`xu`，即 five_hour / seven_day / extra_usage，值为已用 %；**该源没有重置时间**，倒计时只能沿用上次从 statusline / 端点读到、且**此刻仍在未来**的那个时间点——窗口一旦翻滚，旧时间点必然成为过去、随即不再显示，绝不外推）。两者都是**零联网、零限流、不弹钥匙串**的纯本地读取。都读不到时才回落社区接口：token 只读（**不代它续期**）、诚实 UA；该端点被 Anthropic 判为 `not planned` 且限流极猛（社区共识轮询间隔 300–900s），故最短 **600s** 才调一次。再失败则显示 24 小时内的缓存（`缓存` 胶囊），超期如实报错。来源胶囊按**本次实际取数路径**显示（本地 / 社区 / 缓存），不按配置猜。**⚠️ 高级·默认关闭**。 |
 | Codex | `~/.codex/sessions/**/*.jsonl` | 解析最近会话文件里 `token_count` 事件中的 `rate_limits`（primary=5h，secondary=周）。完全本地读取，不联网。 |
 | Gemini CLI | `~/.gemini/tmp/<user>/logs.json`、`chats/*.jsonl` | 统计今天的用户请求数做**本地估算**（仅本机 CLI），本地 0 点重置。官方每日额度按账号类型浮动（约 250–2000）且本地读不到，故分母**可在设置里调整**（默认 1000），界面标注为估算。**注**：2026-06 起 Google 已把个人账号从旧版 Gemini CLI 迁移到 Antigravity CLI（`agy`），其用量不写入 `~/.gemini`；本项仅在检测到近 36h 有本地活动时显示，否则自动隐藏。 |
 | Grok | `~/.grok/logs/unified.jsonl` | 读 Grok Build（grok CLI）自己定期拉取并**落盘到本地日志**的 billing 事件：周共享池已用 %、精确重置时间、订阅档位（如 X Premium）。**完全本地读取、零联网**。注意口径：xAI 付费档为全产品（Chat/Imagine/Build/API）共享周池，此百分比即整体用量。 |
@@ -312,8 +312,11 @@ Tokenitor 为独立开发者作品，与 Anthropic / OpenAI / Google / GitHub·M
   - 交叉验证：history 里 `xu = 94.91000000000001` 与此前来自真实端点调用的 `extra_usage = 94.910000000000011` 完全一致，证明映射正确。
   - **对只用桌面 App 的用户，Claude 现在也是纯本地读取**（零联网、零 429、不弹钥匙串）。
 - **修正来源胶囊的谎报**：此前只要 `statusLine` **配置存在**就显示「本地」，即使它没产数据、实际走的是端点。现在快照自报本次实际取数路径，胶囊按真实来源显示 `本地` / `社区` / `缓存`。
+- **重置倒计时不再一并消失**：桌面历史没有 `resets_at`，但重置时间一旦窗口开始就是定值——因此按窗口名沿用上次从 statusline / 端点读到、且**此刻仍在未来**的那个时间点；已过期就不显示，绝不外推。即「要么给真值，要么不给」。
+- **左右分区**：边栏改用系统 `.sidebar` 材质，与详情区的动态玻璃拉开一层明度差（此前两侧同亮度，看不出边栏边界）。图标一律不动，仍是全盘单色。
+- 顺手修一处缺陷：设置页「授权 Claude」的悬停说明被误挂在「启用本地读取」按钮上（同一按钮两个 `.help`，后者覆盖前者），已归位。
 - CLI 的 `--json` 增加 `source` 字段，脚本可据此判断数据来自本地还是端点。
-- 新增 5 个解析测试（最新样本而非首个、已用 % 语义、extra_usage 可选、未知缩写跳过、空/畸形结构不硬凑）+ 脱敏 fixture，共 102 个。
+- 新增 10 个测试（解析：最新样本而非首个、已用 % 语义、extra_usage 可选、未知缩写跳过、空/畸形结构不硬凑；倒计时沿用：仍在未来才采纳、已过期即丢弃、只按窗口名对齐、不覆盖新数据自带的时间、空缓存无操作）+ 脱敏 fixture，共 107 个。
 
 ### 1.5.5
 

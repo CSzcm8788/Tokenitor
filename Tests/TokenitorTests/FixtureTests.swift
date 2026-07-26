@@ -272,3 +272,47 @@ final class ClaudeDesktopUsageTests: XCTestCase {
         }
     }
 }
+
+/// 桌面用量历史没有 `resets_at`，倒计时只能沿用缓存里仍在未来的那个。
+/// 这里守的边界是：**要么给真值，要么不给**——绝不外推出一个新的重置时间。
+final class ClaudeResetCarryForwardTests: XCTestCase {
+
+    private let future = Date().addingTimeInterval(3600)
+    private let past = Date().addingTimeInterval(-3600)
+
+    /// 缓存里同名窗口的重置时间仍在未来 → 窗口没翻滚，那个时间点还是真值，沿用。
+    func testAdoptsStillFutureResetFromCache() {
+        let fresh = [UsageWindow(usedPercent: 40, resetsAt: nil, label: "5h")]
+        let cached = [UsageWindow(usedPercent: 90, resetsAt: future, label: "5h")]
+        let out = ClaudeProvider.carryForwardResets(fresh, from: cached)
+        XCTAssertEqual(out[0].resetsAt, future)
+        XCTAssertEqual(out[0].usedPercent, 40, "百分比必须仍来自新数据，不能被缓存带回去")
+    }
+
+    /// 缓存里的重置时间已过去 → 窗口已翻滚，新的重置时间我们不知道，就**不显示**。
+    func testDropsExpiredResetInsteadOfExtrapolating() {
+        let fresh = [UsageWindow(usedPercent: 10, resetsAt: nil, label: "5h")]
+        let cached = [UsageWindow(usedPercent: 90, resetsAt: past, label: "5h")]
+        XCTAssertNil(ClaudeProvider.carryForwardResets(fresh, from: cached)[0].resetsAt)
+    }
+
+    /// 只按 label 对齐；缓存里没有这个窗口就保持为空。
+    func testOnlyMatchesSameLabel() {
+        let fresh = [UsageWindow(usedPercent: 10, resetsAt: nil, label: "extra_usage")]
+        let cached = [UsageWindow(usedPercent: 90, resetsAt: future, label: "5h")]
+        XCTAssertNil(ClaudeProvider.carryForwardResets(fresh, from: cached)[0].resetsAt)
+    }
+
+    /// 新数据自己带了重置时间（statusline / 端点路径）→ 不被缓存覆盖。
+    func testNeverOverwritesAFreshReset() {
+        let own = Date().addingTimeInterval(7200)
+        let fresh = [UsageWindow(usedPercent: 10, resetsAt: own, label: "5h")]
+        let cached = [UsageWindow(usedPercent: 90, resetsAt: future, label: "5h")]
+        XCTAssertEqual(ClaudeProvider.carryForwardResets(fresh, from: cached)[0].resetsAt, own)
+    }
+
+    func testEmptyCacheIsNoOp() {
+        let fresh = [UsageWindow(usedPercent: 10, resetsAt: nil, label: "weekly")]
+        XCTAssertNil(ClaudeProvider.carryForwardResets(fresh, from: [])[0].resetsAt)
+    }
+}

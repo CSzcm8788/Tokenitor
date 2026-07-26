@@ -28,10 +28,21 @@ struct DashboardView: View {
     @ViewBuilder
     private var sidebarList: some View {
         if #available(macOS 14.0, *) {
-            sidebarContent.toolbar(removing: .sidebarToggle)
+            sidebarContent.toolbar(removing: .sidebarToggle).background(sidebarTint)
         } else {
-            sidebarContent
+            sidebarContent.background(sidebarTint)
         }
+    }
+
+    /// 边栏用系统 `.sidebar` 材质，与详情区的 `.popover` 拉开一层明度差——之前两侧都只有窗口
+    /// 那一层 behindWindow 玻璃，实测浅色下 218 vs 217，等于看不出边栏边界。
+    /// 用系统材质而不是自己叠色：明暗两套的方向由系统给（实测浅色边栏偏亮 226/217、深色偏暗
+    /// 71/98），自己叠固定色只能对一套。曾试 `Color.black.opacity(0.055)`，材质会把它抹掉，
+    /// 只剩 3 级差、白改。
+    /// 只加在边栏这一侧：详情区的 `VisualEffectView(.popover, .behindWindow)` 是动态玻璃的
+    /// 内容层，一个字都不要动（见 CLAUDE.md §2）。
+    private var sidebarTint: some View {
+        VisualEffectView(material: .sidebar, blending: .behindWindow).ignoresSafeArea()
     }
 
     /// 边栏选中项：普通页面，或 Token 下的某个工具子项。
@@ -73,6 +84,9 @@ struct DashboardView: View {
                     sidebarItem(L("说明", "Guide"), "questionmark.circle", .help)
                 }
         }
+        // List 默认自己画一层不透明底，会把下面的 sidebarTint 完全盖住（实测加了色看不出变化）；
+        // 隐掉它，左右两侧的明度差才出得来。
+        .scrollContentBackground(.hidden)
     }
 
     /// 边栏选中项 ↔ store.page / store.tokenTool 映射。
@@ -198,7 +212,7 @@ struct AboutDetail: View {
 
     /// 版本更新简要（一版一行，只展示最近三条；完整日志见 GitHub README）。
     private static let releaseNotes: [(version: String, note: String)] = [
-        ("1.5.6", L("Claude 桌面 App 也走本地：读桌面自写的用量历史 · 来源胶囊按实际路径 · 更正 1.5.5 的错误说法", "Claude desktop app now local too: reads the history it writes itself · source chip reflects the real path · corrects a false claim in 1.5.5")),
+        ("1.5.6", L("Claude 桌面 App 也走本地：读桌面自写的用量历史 · 来源胶囊按实际路径 · 边栏与详情区分层 · 更正 1.5.5 的错误说法", "Claude desktop app now local too: reads the history it writes itself · source chip reflects the real path · sidebar/detail separation · corrects a false claim in 1.5.5")),
         ("1.5.5", L("Claude 改本地读取（零联网、不再撞限流）· 四级降级链", "Claude now reads locally (no network, no rate limits) · four-tier fallback")),
         ("1.5.4", L("卡片头两行化 · 浅色模式全窗统一 · 设置页 4 字对齐 · 刷新全自动（移除手动按钮）· 应用内检查更新", "Two-row card header · unified light mode · 4-char settings labels · fully automatic refresh · in-app update check")),
         ("1.5.3", L("Grok 接入（第 5 个 AI）· Token 页三新源 · 内存峰值 −78% · Snooze/低电量 · Gemini 翻倍修复", "Grok support (5th AI) · 3 new token sources · −78% peak memory · snooze/low-power · Gemini double-count fix")),
